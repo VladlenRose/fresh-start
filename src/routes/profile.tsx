@@ -38,7 +38,7 @@ function Profile() {
 
   const profileQuery = useQuery({
     queryKey: ["profile", user?.$id],
-    queryFn: () => getProfile(user!.$id),
+    queryFn: () => getProfile(user!.id),
     enabled: !!user,
   });
 
@@ -59,7 +59,7 @@ function Profile() {
   }, [profileQuery.data, user]);
 
   const save = useMutation({
-    mutationFn: () => saveProfile(user!.$id, form),
+    mutationFn: () => saveProfile(user!.id, form),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["profile"] });
       toast.success("Профиль сохранён");

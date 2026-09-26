@@ -26,7 +26,7 @@ import {
   type Product,
   type ProductStatus,
 } from "@/lib/api";
-import { fileUrl } from "@/lib/appwrite";
+
 import { CATEGORIES, fallbackImage } from "@/lib/catalog-meta";
 import { cn } from "@/lib/utils";
 
@@ -65,12 +65,12 @@ function Seller() {
 
   const productsQuery = useQuery({
     queryKey: ["my-products", user?.$id],
-    queryFn: () => listMyProducts(user!.$id),
+    queryFn: () => listMyProducts(user!.id),
     enabled: !!user,
   });
   const profileQuery = useQuery({
     queryKey: ["profile", user?.$id],
-    queryFn: () => getProfile(user!.$id),
+    queryFn: () => getProfile(user!.id),
     enabled: !!user,
   });
 
@@ -80,7 +80,7 @@ function Seller() {
     mutationFn: async () => {
       if (!user) throw new Error("auth");
       const imageId = file ? await uploadProductImage(file) : null;
-      return createProduct(user.$id, {
+      return createProduct(user?.id, {
         title: title.trim(),
         description: description.trim(),
         supplier: profileQuery.data?.company || user.name || "Мой бизнес",
@@ -114,7 +114,7 @@ function Seller() {
     onError: () => toast.error("Не удалось удалить товар"),
   });
 
-  const imageOf = (p: Product) => fileUrl(p.imageId) ?? fallbackImage(p.$id);
+  const imageOf = (p: Product) => imageUrl(p.imageId) ?? fallbackImage(p.$id);
 
   return (
     <AppShell title="Мои товары">

@@ -47,7 +47,7 @@ function Documents() {
 
   const docsQuery = useQuery({
     queryKey: ["documents", user?.$id],
-    queryFn: () => listDocuments(user!.$id),
+    queryFn: () => listDocuments(user!.id),
     enabled: !!user,
   });
   const docs = docsQuery.data ?? [];

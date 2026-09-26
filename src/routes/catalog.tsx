@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { useAuth } from "@/hooks/use-auth";
 import { createMessage, createThread, listProducts, type Product } from "@/lib/api";
-import { fileUrl } from "@/lib/appwrite";
+
 import { CATEGORIES, fallbackImage } from "@/lib/catalog-meta";
 import { cn } from "@/lib/utils";
 
@@ -66,7 +66,7 @@ function Catalog() {
   const requestOffer = useMutation({
     mutationFn: async (product: Product) => {
       if (!user) throw new Error("auth");
-      const thread = await createThread(user.$id, {
+      const thread = await createThread(user?.id, {
         sellerId: product.ownerId,
         productId: product.$id,
         company: product.supplier || "Поставщик",
@@ -74,7 +74,7 @@ function Catalog() {
         preview: `Запрос по «${product.title}»`,
         lastAt: new Date().toISOString(),
       });
-      await createMessage(user.$id, {
+      await createMessage(user?.id, {
         threadId: thread.$id,
         author: "me",
         text: `Здравствуйте! Интересует «${product.title}». Расскажите об условиях поставки и скидке при объёме.`,
@@ -201,7 +201,7 @@ function Catalog() {
               <article key={p.$id} className="glass-panel group flex flex-col overflow-hidden rounded-2xl">
                 <div className="relative aspect-4/3 overflow-hidden bg-mist">
                   <img
-                    src={fileUrl(p.imageId) ?? fallbackImage(p.$id)}
+                    src={imageUrl(p.imageId) ?? fallbackImage(p.$id)}
                     alt={p.title}
                     loading="lazy"
                     className="size-full object-cover transition-transform duration-500 group-hover:scale-105"

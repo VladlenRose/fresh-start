@@ -55,7 +55,7 @@ function Chat() {
 
   const threadsQuery = useQuery({
     queryKey: ["threads", user?.$id],
-    queryFn: () => listThreads(user!.$id),
+    queryFn: () => listThreads(user!.id),
     enabled: !!user,
   });
   const threads = threadsQuery.data ?? [];
@@ -80,7 +80,7 @@ function Chat() {
   const send = useMutation({
     mutationFn: async (text: string) => {
       if (!user || !active) throw new Error("no-thread");
-      await createMessage(user.$id, { threadId: active.$id, author: "me", text });
+      await createMessage(user?.id, { threadId: active.$id, author: "me", text });
       await queryClient.invalidateQueries({ queryKey: ["messages", active.$id] });
 
       const history = [...messages.map((m) => ({ author: m.author, text: m.text ?? "" })), {
@@ -98,7 +98,7 @@ function Chat() {
         },
       });
 
-      await createMessage(user.$id, {
+      await createMessage(user?.id, {
         threadId: active.$id,
         author: "agent",
         text: reply.text,
@@ -133,7 +133,7 @@ function Chat() {
         `Дата: ${new Date().toLocaleDateString("ru-RU")}`,
       ].join("\n");
 
-      await createDocument(user.$id, {
+      await createDocument(user?.id, {
         threadId: active.$id,
         title: `Договор · ${product?.title ?? active.company ?? "сделка"}`,
         counterparty: active.company ?? "",

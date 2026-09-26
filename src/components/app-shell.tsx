@@ -59,7 +59,7 @@ export function AppShell({
 
   const profileQuery = useQuery({
     queryKey: ["profile", user?.$id],
-    queryFn: () => getProfile(user!.$id),
+    queryFn: () => getProfile(user!.id),
     enabled: !!user,
   });
 
