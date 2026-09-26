@@ -16,13 +16,19 @@ const buttonVariants = cva(
         secondary: "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
+        hero: "cta-sheen rounded-full bg-brand text-brand-foreground font-semibold ring-1 ring-inset ring-white/10 transition-[background-color,box-shadow] hover:bg-brand/90",
+        heroGhost:
+          "cta-sheen rounded-full bg-card text-brand font-semibold ring-1 ring-inset ring-brand/15 transition-[background-color,box-shadow] hover:bg-mist",
+        pill: "rounded-full bg-brand text-brand-foreground ring-1 ring-inset ring-white/10 hover:bg-brand/90",
       },
       size: {
         default: "h-9 px-4 py-2",
         sm: "h-8 rounded-md px-3 text-xs",
         lg: "h-10 rounded-md px-8",
+        xl: "h-12 px-7 text-base",
         icon: "h-9 w-9",
       },
+
     },
     defaultVariants: {
       variant: "default",
