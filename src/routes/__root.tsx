@@ -11,7 +11,6 @@ import { useEffect, type ReactNode } from "react";
 
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/hooks/use-auth";
-import { client } from "@/lib/appwrite";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -126,13 +125,6 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-
-  useEffect(() => {
-    void client
-      .ping()
-      .then(() => console.log("[Appwrite] ping OK"))
-      .catch((err: unknown) => console.error("[Appwrite] ping failed", err));
-  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

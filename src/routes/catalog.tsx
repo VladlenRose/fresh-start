@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { useAuth } from "@/hooks/use-auth";
-import { createMessage, createThread, listProducts, type Product } from "@/lib/api";
+import { createMessage, createThread, imageUrl, listProducts, type Product } from "@/lib/api";
 
 import { CATEGORIES, fallbackImage } from "@/lib/catalog-meta";
 import { cn } from "@/lib/utils";

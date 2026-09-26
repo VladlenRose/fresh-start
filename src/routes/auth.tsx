@@ -29,7 +29,11 @@ type Mode = "login" | "register";
 
 function errorText(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
+  if (message === "EMAIL_CONFIRM_REQUIRED")
+    return "Мы отправили письмо с подтверждением — перейдите по ссылке и войдите";
+  if (/Invalid login credentials/i.test(message)) return "Неверный email или пароль";
   if (/Invalid credentials/i.test(message)) return "Неверный email или пароль";
+  if (/User already registered/i.test(message)) return "Пользователь с таким email уже зарегистрирован";
   if (/already exists/i.test(message)) return "Пользователь с таким email уже зарегистрирован";
   if (/Password must be/i.test(message)) return "Пароль должен содержать минимум 8 символов";
   if (/Invalid `email`/i.test(message)) return "Введите корректный email";

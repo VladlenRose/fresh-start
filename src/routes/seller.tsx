@@ -21,6 +21,7 @@ import {
   createProduct,
   deleteProduct,
   getProfile,
+  imageUrl,
   listMyProducts,
   uploadProductImage,
   type Product,
