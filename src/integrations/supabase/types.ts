@@ -14,7 +14,194 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      documents: {
+        Row: {
+          body: string | null
+          counterparty: string | null
+          created_at: string
+          id: string
+          owner_id: string
+          status: string
+          thread_id: string | null
+          title: string
+        }
+        Insert: {
+          body?: string | null
+          counterparty?: string | null
+          created_at?: string
+          id?: string
+          owner_id: string
+          status?: string
+          thread_id?: string | null
+          title: string
+        }
+        Update: {
+          body?: string | null
+          counterparty?: string | null
+          created_at?: string
+          id?: string
+          owner_id?: string
+          status?: string
+          thread_id?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
+      messages: {
+        Row: {
+          author: string
+          created_at: string
+          id: string
+          offer_conditions: string | null
+          offer_price: string | null
+          offer_term: string | null
+          text: string | null
+          thread_id: string
+        }
+        Insert: {
+          author?: string
+          created_at?: string
+          id?: string
+          offer_conditions?: string | null
+          offer_price?: string | null
+          offer_term?: string | null
+          text?: string | null
+          thread_id: string
+        }
+        Update: {
+          author?: string
+          created_at?: string
+          id?: string
+          offer_conditions?: string | null
+          offer_price?: string | null
+          offer_term?: string | null
+          text?: string | null
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          category: string | null
+          created_at: string
+          description: string | null
+          id: string
+          image_id: string | null
+          owner_id: string
+          price: number
+          rating: number
+          status: string
+          supplier: string | null
+          title: string
+          unit: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_id?: string | null
+          owner_id: string
+          price?: number
+          rating?: number
+          status?: string
+          supplier?: string | null
+          title: string
+          unit?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_id?: string | null
+          owner_id?: string
+          price?: number
+          rating?: number
+          status?: string
+          supplier?: string | null
+          title?: string
+          unit?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          company: string | null
+          created_at: string
+          email: string | null
+          id: string
+          inn: string | null
+          name: string | null
+          phone: string | null
+          user_id: string
+        }
+        Insert: {
+          company?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          inn?: string | null
+          name?: string | null
+          phone?: string | null
+          user_id: string
+        }
+        Update: {
+          company?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          inn?: string | null
+          name?: string | null
+          phone?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      threads: {
+        Row: {
+          buyer_id: string
+          company: string | null
+          created_at: string
+          id: string
+          last_at: string | null
+          preview: string | null
+          product_id: string | null
+          seller_id: string | null
+          stage: string
+        }
+        Insert: {
+          buyer_id: string
+          company?: string | null
+          created_at?: string
+          id?: string
+          last_at?: string | null
+          preview?: string | null
+          product_id?: string | null
+          seller_id?: string | null
+          stage?: string
+        }
+        Update: {
+          buyer_id?: string
+          company?: string | null
+          created_at?: string
+          id?: string
+          last_at?: string | null
+          preview?: string | null
+          product_id?: string | null
+          seller_id?: string | null
+          stage?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
