@@ -235,7 +235,17 @@ export async function createProduct(userId: string, data: ProductInput) {
 }
 
 export async function updateProduct(id: string, data: Partial<ProductInput>) {
-  const patch: Record<string, unknown> = {};
+  const patch: {
+    title?: string;
+    description?: string | null;
+    supplier?: string | null;
+    category?: string | null;
+    price?: number;
+    unit?: string | null;
+    rating?: number;
+    image_id?: string | null;
+    status?: string;
+  } = {};
   if (data.title !== undefined) patch["title"] = data.title;
   if (data.description !== undefined) patch["description"] = data.description;
   if (data.supplier !== undefined) patch["supplier"] = data.supplier;
@@ -359,7 +369,14 @@ export async function createThread(userId: string, data: ThreadInput) {
 }
 
 export async function updateThread(id: string, data: Partial<ThreadInput>) {
-  const patch: Record<string, unknown> = {};
+  const patch: {
+    seller_id?: string | null;
+    product_id?: string | null;
+    company?: string | null;
+    stage?: string;
+    preview?: string | null;
+    last_at?: string | null;
+  } = {};
   if (data.sellerId !== undefined) patch["seller_id"] = data.sellerId;
   if (data.productId !== undefined) patch["product_id"] = data.productId;
   if (data.company !== undefined) patch["company"] = data.company;
