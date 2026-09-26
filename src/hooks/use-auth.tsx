@@ -1,5 +1,4 @@
 import { useNavigate } from "@tanstack/react-router";
-import type { Models } from "appwrite";
 import {
   createContext,
   useCallback,
@@ -10,10 +9,14 @@ import {
   type ReactNode,
 } from "react";
 
-import { ID, account } from "@/lib/appwrite";
+import { supabase } from "@/integrations/supabase/client";
 import { saveProfile } from "@/lib/api";
 
-type AuthUser = Models.User<Models.DefaultPreferences>;
+export type AuthUser = {
+  id: string;
+  email: string;
+  name: string;
+};
 
 type AuthContextValue = {
   user: AuthUser | null;
@@ -31,14 +34,27 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+function toAuthUser(raw: {
+  id: string;
+  email?: string;
+  user_metadata?: Record<string, unknown>;
+}): AuthUser {
+  const metaName = raw.user_metadata?.["name"];
+  return {
+    id: raw.id,
+    email: raw.email ?? "",
+    name: typeof metaName === "string" && metaName ? metaName : (raw.email ?? ""),
+  };
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     try {
-      const me = await account.get();
-      setUser(me as AuthUser);
+      const { data } = await supabase.auth.getSession();
+      setUser(data.session?.user ? toAuthUser(data.session.user) : null);
     } catch {
       setUser(null);
     } finally {
@@ -48,11 +64,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void refresh();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ? toAuthUser(session.user) : null);
+      setLoading(false);
+    });
+    return () => subscription.unsubscribe();
   }, [refresh]);
 
   const login = useCallback(
     async (email: string, password: string) => {
-      await account.createEmailPasswordSession({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
       await refresh();
     },
     [refresh],
@@ -70,19 +94,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: string;
       password: string;
     }) => {
-      await account.create({ userId: ID.unique(), email, password, name });
-      await account.createEmailPasswordSession({ email, password });
-      const me = (await account.get()) as AuthUser;
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { name, company } },
+      });
+      if (error) throw error;
+      if (!data.session) {
+        throw new Error("EMAIL_CONFIRM_REQUIRED");
+      }
+      const me = toAuthUser(data.session.user);
       setUser(me);
       setLoading(false);
-      await saveProfile(me.$id, { name, company, email });
+      await saveProfile(me.id, { name, company, email });
     },
     [],
   );
 
   const logout = useCallback(async () => {
     try {
-      await account.deleteSession({ sessionId: "current" });
+      await supabase.auth.signOut();
     } catch {
       /* already signed out */
     }
