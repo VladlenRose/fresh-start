@@ -236,15 +236,15 @@ export async function createProduct(userId: string, data: ProductInput) {
 
 export async function updateProduct(id: string, data: Partial<ProductInput>) {
   const patch: Record<string, unknown> = {};
-  if (data.title !== undefined) patch.title = data.title;
-  if (data.description !== undefined) patch.description = data.description;
-  if (data.supplier !== undefined) patch.supplier = data.supplier;
-  if (data.category !== undefined) patch.category = data.category;
-  if (data.price !== undefined) patch.price = data.price;
-  if (data.unit !== undefined) patch.unit = data.unit;
-  if (data.rating !== undefined) patch.rating = data.rating;
-  if (data.imageId !== undefined) patch.image_id = data.imageId;
-  if (data.status !== undefined) patch.status = data.status;
+  if (data.title !== undefined) patch["title"] = data.title;
+  if (data.description !== undefined) patch["description"] = data.description;
+  if (data.supplier !== undefined) patch["supplier"] = data.supplier;
+  if (data.category !== undefined) patch["category"] = data.category;
+  if (data.price !== undefined) patch["price"] = data.price;
+  if (data.unit !== undefined) patch["unit"] = data.unit;
+  if (data.rating !== undefined) patch["rating"] = data.rating;
+  if (data.imageId !== undefined) patch["image_id"] = data.imageId;
+  if (data.status !== undefined) patch["status"] = data.status;
   const { data: row, error } = await supabase
     .from("products")
     .update(patch)
@@ -360,12 +360,12 @@ export async function createThread(userId: string, data: ThreadInput) {
 
 export async function updateThread(id: string, data: Partial<ThreadInput>) {
   const patch: Record<string, unknown> = {};
-  if (data.sellerId !== undefined) patch.seller_id = data.sellerId;
-  if (data.productId !== undefined) patch.product_id = data.productId;
-  if (data.company !== undefined) patch.company = data.company;
-  if (data.stage !== undefined) patch.stage = data.stage;
-  if (data.preview !== undefined) patch.preview = data.preview;
-  if (data.lastAt !== undefined) patch.last_at = data.lastAt;
+  if (data.sellerId !== undefined) patch["seller_id"] = data.sellerId;
+  if (data.productId !== undefined) patch["product_id"] = data.productId;
+  if (data.company !== undefined) patch["company"] = data.company;
+  if (data.stage !== undefined) patch["stage"] = data.stage;
+  if (data.preview !== undefined) patch["preview"] = data.preview;
+  if (data.lastAt !== undefined) patch["last_at"] = data.lastAt;
   const { data: row, error } = await supabase
     .from("threads")
     .update(patch)

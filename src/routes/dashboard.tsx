@@ -27,17 +27,17 @@ function Dashboard() {
   const { user } = useAuth();
 
   const threads = useQuery({
-    queryKey: ["threads", user?.$id],
+    queryKey: ["threads", user?.id],
     queryFn: () => listThreads(user!.id),
     enabled: !!user,
   });
   const docs = useQuery({
-    queryKey: ["documents", user?.$id],
+    queryKey: ["documents", user?.id],
     queryFn: () => listDocuments(user!.id),
     enabled: !!user,
   });
   const mine = useQuery({
-    queryKey: ["my-products", user?.$id],
+    queryKey: ["my-products", user?.id],
     queryFn: () => listMyProducts(user!.id),
     enabled: !!user,
   });

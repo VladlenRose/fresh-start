@@ -58,7 +58,7 @@ export function AppShell({
   const navigate = useNavigate();
 
   const profileQuery = useQuery({
-    queryKey: ["profile", user?.$id],
+    queryKey: ["profile", user?.id],
     queryFn: () => getProfile(user!.id),
     enabled: !!user,
   });

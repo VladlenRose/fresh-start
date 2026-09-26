@@ -46,7 +46,7 @@ function Documents() {
   const queryClient = useQueryClient();
 
   const docsQuery = useQuery({
-    queryKey: ["documents", user?.$id],
+    queryKey: ["documents", user?.id],
     queryFn: () => listDocuments(user!.id),
     enabled: !!user,
   });

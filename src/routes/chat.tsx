@@ -54,7 +54,7 @@ function Chat() {
   const [draft, setDraft] = useState("");
 
   const threadsQuery = useQuery({
-    queryKey: ["threads", user?.$id],
+    queryKey: ["threads", user?.id],
     queryFn: () => listThreads(user!.id),
     enabled: !!user,
   });

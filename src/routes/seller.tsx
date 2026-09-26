@@ -65,12 +65,12 @@ function Seller() {
   const [file, setFile] = useState<File | null>(null);
 
   const productsQuery = useQuery({
-    queryKey: ["my-products", user?.$id],
+    queryKey: ["my-products", user?.id],
     queryFn: () => listMyProducts(user!.id),
     enabled: !!user,
   });
   const profileQuery = useQuery({
-    queryKey: ["profile", user?.$id],
+    queryKey: ["profile", user?.id],
     queryFn: () => getProfile(user!.id),
     enabled: !!user,
   });

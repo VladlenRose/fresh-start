@@ -37,7 +37,7 @@ function Profile() {
   const [form, setForm] = useState({ name: "", company: "", email: "", phone: "", inn: "" });
 
   const profileQuery = useQuery({
-    queryKey: ["profile", user?.$id],
+    queryKey: ["profile", user?.id],
     queryFn: () => getProfile(user!.id),
     enabled: !!user,
   });
