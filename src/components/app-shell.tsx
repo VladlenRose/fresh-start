@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { label: "Главная", to: "/dashboard", icon: LayoutGrid },
   { label: "Каталог", to: "/catalog", icon: Store },
+  { label: "Торговые заявки", to: "/requests", icon: Inbox },
   { label: "Мои товары", to: "/seller", icon: Package },
   { label: "Чат-переговоры", to: "/chat", icon: MessagesSquare },
   { label: "Документы", to: "/documents", icon: FileText },

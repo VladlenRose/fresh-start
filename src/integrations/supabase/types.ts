@@ -202,6 +202,39 @@ export type Database = {
         }
         Relationships: []
       }
+      trade_requests: {
+        Row: {
+          attachment_url: string | null
+          created_at: string
+          extra: string | null
+          id: string
+          kind: string
+          owner_id: string
+          params: Json
+          title: string
+        }
+        Insert: {
+          attachment_url?: string | null
+          created_at?: string
+          extra?: string | null
+          id?: string
+          kind: string
+          owner_id: string
+          params?: Json
+          title: string
+        }
+        Update: {
+          attachment_url?: string | null
+          created_at?: string
+          extra?: string | null
+          id?: string
+          kind?: string
+          owner_id?: string
+          params?: Json
+          title?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

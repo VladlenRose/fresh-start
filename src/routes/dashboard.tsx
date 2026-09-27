@@ -113,6 +113,9 @@ function Dashboard() {
           <h2 className="text-base font-semibold text-ink">Быстрые действия</h2>
           <div className="mt-5 flex flex-col gap-3">
             <Button variant="hero" className="h-11 w-full" asChild>
+              <Link to="/requests">Создать ИИ-заявку</Link>
+            </Button>
+            <Button variant="outline" className="h-11 w-full rounded-full" asChild>
               <Link to="/catalog">Найти товары</Link>
             </Button>
             <Button variant="outline" className="h-11 w-full rounded-full" asChild>
