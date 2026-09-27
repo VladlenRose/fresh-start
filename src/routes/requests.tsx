@@ -123,7 +123,7 @@ function RequestsPage() {
     setParams((p) => ({ ...p, [k]: { ...p[k], ...patch } }));
 
   async function runAnalyze() {
-    if (!text.trim()) return toast.error("Введите текст заявки");
+    if (!text.trim()) { toast.error("Введите текст заявки"); return; }
     setAnalyzing(true);
     try {
       const r = await analyze({ data: { text } });
@@ -149,7 +149,7 @@ function RequestsPage() {
 
   async function search() {
     if (!user) return;
-    if (!title.trim()) return toast.error("Укажите название товара или услуги");
+    if (!title.trim()) { toast.error("Укажите название товара или услуги"); return; }
     setSearching(true);
     try {
       let attachment: string | null = null;
