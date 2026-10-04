@@ -211,6 +211,7 @@ export type Database = {
           kind: string
           owner_id: string
           params: Json
+          response_to: string | null
           title: string
         }
         Insert: {
@@ -221,6 +222,7 @@ export type Database = {
           kind: string
           owner_id: string
           params?: Json
+          response_to?: string | null
           title: string
         }
         Update: {
@@ -231,9 +233,18 @@ export type Database = {
           kind?: string
           owner_id?: string
           params?: Json
+          response_to?: string | null
           title?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "trade_requests_response_to_fkey"
+            columns: ["response_to"]
+            isOneToOne: false
+            referencedRelation: "trade_requests"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
