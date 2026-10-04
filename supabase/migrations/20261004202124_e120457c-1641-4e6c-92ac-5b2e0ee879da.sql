@@ -1,0 +1,1 @@
+ALTER TABLE public.trade_requests ADD COLUMN response_to uuid REFERENCES public.trade_requests(id) ON DELETE SET NULL;

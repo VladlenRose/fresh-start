@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2, Search, Sparkles, Upload, X } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { Loader2, Search, Sparkles, Upload, X, Reply } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
@@ -67,8 +68,9 @@ const emptyParam = (): Param => ({ priority: 50, ignore: false, min: "", max: ""
 const emptyParams = (): Params =>
   Object.fromEntries(KEYS.map((k) => [k, emptyParam()])) as Params;
 
-type Stored = { id: string; owner_id: string; kind: Kind; title: string; params: Params; extra: string | null; created_at: string };
-type Match = { req: Stored; score: number; zone: "green" | "yellow" | "red" };
+type Stored = { id: string; owner_id: string; kind: Kind; title: string; params: Params; extra: string | null; created_at: string; response_to: string | null; attachment_url: string | null };
+type Zone = "green" | "yellow" | "red";
+type Ref = { kind: Kind; params: Params; id: string };
 
 const n = (s: string) => (s.trim() === "" ? null : Number(s));
 
@@ -87,7 +89,14 @@ function overlapScore(a: Param, b: Param, key: ParamKey): number | null {
   return a.value.trim().toLowerCase() === b.value.trim().toLowerCase() ? 1 : 0;
 }
 
-function matchScore(mine: Params, other: Params) {
+const mid = (p: Param) => {
+  const a = n(p.min), b = n(p.max);
+  if (a === null && b === null) return null;
+  return ((a ?? b!) + (b ?? a!)) / 2;
+};
+
+/** Скор совпадения с учётом приоритета цены: продавцу выгодна более высокая встречная цена, покупателю — более низкая. */
+function matchScore(mine: Params, other: Params, myKind: Kind) {
   let wsum = 0;
   let total = 0;
   for (const k of KEYS) {
@@ -97,7 +106,29 @@ function matchScore(mine: Params, other: Params) {
     wsum += w;
     total += w * s;
   }
-  return wsum === 0 ? 0.5 : total / wsum;
+  let score = wsum === 0 ? 0.5 : total / wsum;
+  const m1 = mid(mine.price), m2 = mid(other.price);
+  if (!mine.price.ignore && !other.price.ignore && m1 && m2 && m1 > 0 && m2 > 0) {
+    const ratio = m2 / m1;
+    const weight = 0.5 + mine.price.priority / 100; // приоритет усиливает коэффициент
+    const coef = Math.pow(ratio, weight);
+    score = myKind === "sell" ? score * coef : score / coef;
+  }
+  return Math.max(0, Math.min(1, score));
+}
+
+const zoneOf = (s: number): Zone => (s >= 0.75 ? "green" : s >= 0.4 ? "yellow" : "red");
+const ZONE_DOT: Record<Zone, string> = { green: "bg-emerald-500", yellow: "bg-amber-400", red: "bg-destructive" };
+const ZONE_LABEL: Record<Zone, string> = { green: "Подходит", yellow: "Частично", red: "Слабо" };
+
+function fmtParam(k: ParamKey, p?: Param) {
+  if (!p) return "—";
+  if (p.ignore) return "Не важно";
+  if (RANGE[k] !== undefined) {
+    if (!p.min && !p.max) return "—";
+    return `${p.min || "…"} — ${p.max || "…"} ${k === "qty" ? p.unit : RANGE[k]}`.trim();
+  }
+  return p.value || "—";
 }
 
 function RequestsPage() {
@@ -111,7 +142,52 @@ function RequestsPage() {
   const [file, setFile] = useState<File | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [searching, setSearching] = useState(false);
-  const [matches, setMatches] = useState<Match[] | null>(null);
+  const [mode, setMode] = useState<"form" | "registry">("form");
+  const [all, setAll] = useState<Stored[]>([]);
+  const [loadingAll, setLoadingAll] = useState(false);
+  const [filter, setFilter] = useState<"all" | "buy" | "sell" | "mine">("all");
+  const [query, setQuery] = useState("");
+  const [ref, setRef] = useState<Ref | null>(null);
+  const [open, setOpen] = useState<Stored | null>(null);
+  const [respondTo, setRespondTo] = useState<Stored | null>(null);
+
+  async function loadAll() {
+    setLoadingAll(true);
+    const { data, error } = await supabase
+      .from("trade_requests")
+      .select("id, owner_id, kind, title, params, extra, created_at, response_to, attachment_url")
+      .order("created_at", { ascending: false })
+      .limit(300);
+    setLoadingAll(false);
+    if (error) { toast.error(error.message); return; }
+    setAll((data ?? []) as unknown as Stored[]);
+  }
+  useEffect(() => { if (mode === "registry") void loadAll(); }, [mode]);
+
+  const rows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const list = all
+      .filter((r) => filter === "all" || (filter === "mine" ? r.owner_id === user?.id : r.kind === filter))
+      .filter((r) => !q || r.title.toLowerCase().includes(q) || (r.extra ?? "").toLowerCase().includes(q))
+      .map((r) => {
+        const counter = ref && r.kind !== ref.kind && r.id !== ref.id && r.owner_id !== user?.id;
+        const score = counter ? matchScore(ref.params, { ...emptyParams(), ...r.params }, ref.kind) : null;
+        return { r, score };
+      });
+    if (ref) list.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+    return list;
+  }, [all, filter, query, ref, user?.id]);
+
+  function respond(r: Stored) {
+    setRespondTo(r);
+    setKind(r.kind === "buy" ? "sell" : "buy");
+    setTitle(r.title);
+    setParams({ ...emptyParams(), ...r.params });
+    setExtra("");
+    setOpen(null);
+    setMode("form");
+    window.scrollTo({ top: 0 });
+  }
   const fileRef = useRef<HTMLInputElement>(null);
 
   const sorted = useMemo(
@@ -154,35 +230,25 @@ function RequestsPage() {
     try {
       let attachment: string | null = null;
       if (file) attachment = await uploadProductImage(file);
-      const { error } = await supabase.from("trade_requests").insert({
-        owner_id: user.id,
-        kind,
-        title: title.trim(),
-        params: params as never,
-        extra: extra || null,
-        attachment_url: attachment,
-      });
-      if (error) throw error;
-
-      const words = title.trim().split(/\s+/).filter((w) => w.length > 2).slice(0, 3);
-      let q = supabase
+      const { data: saved, error } = await supabase
         .from("trade_requests")
-        .select("id, owner_id, kind, title, params, extra, created_at")
-        .eq("kind", kind === "buy" ? "sell" : "buy")
-        .neq("owner_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (words.length) q = q.or(words.map((w) => `title.ilike.%${w.replace(/[,%()]/g, "")}%`).join(","));
-      const { data, error: e2 } = await q;
-      if (e2) throw e2;
-      const res = ((data ?? []) as unknown as Stored[])
-        .map((req) => {
-          const score = matchScore(params, { ...emptyParams(), ...req.params });
-          const zone: Match["zone"] = score >= 0.75 ? "green" : score >= 0.4 ? "yellow" : "red";
-          return { req, score, zone };
+        .insert({
+          owner_id: user.id,
+          kind,
+          title: title.trim(),
+          params: params as never,
+          extra: extra || null,
+          attachment_url: attachment,
+          response_to: respondTo?.id ?? null,
         })
-        .sort((a, b) => b.score - a.score);
-      setMatches(res);
+        .select("id")
+        .single();
+      if (error) throw error;
+      setRef({ kind, params, id: saved.id });
+      setRespondTo(null);
+      setFilter(kind === "buy" ? "sell" : "buy");
+      setQuery("");
+      setMode("registry");
       toast.success("Заявка сохранена");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Ошибка сохранения");
@@ -194,6 +260,22 @@ function RequestsPage() {
   return (
     <AppShell title="Торговые заявки">
       <div className="mx-auto max-w-4xl space-y-6">
+        <div className="flex gap-2 border-b border-border">
+          {([["form", "Создать заявку"], ["registry", "Реестр рынка"]] as const).map(([m, l]) => (
+            <button key={m} type="button" onClick={() => setMode(m)}
+              className={cn("-mb-px border-b-2 px-4 py-2 text-sm font-medium", mode === m ? "border-brand text-ink" : "border-transparent text-dim hover:text-ink")}>
+              {l}
+            </button>
+          ))}
+        </div>
+
+        {mode === "form" ? (<>
+        {respondTo && (
+          <div className="flex items-center justify-between rounded-xl border border-brand/30 bg-brand/5 px-4 py-3 text-sm text-ink">
+            <span>Встречная заявка на: <b>{respondTo.title}</b> ({respondTo.kind === "buy" ? "покупка" : "продажа"})</span>
+            <Button variant="ghost" size="sm" onClick={() => setRespondTo(null)}><X className="size-4" /></Button>
+          </div>
+        )}
         <div className="inline-flex rounded-full border border-border bg-background p-1">
           {(["sell", "buy"] as const).map((k) => (
             <button
@@ -316,40 +398,96 @@ function RequestsPage() {
 
           <Button variant="hero" className="h-12 w-full" onClick={search} disabled={searching}>
             {searching ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
-            Искать предложения
+            Поиск соответствий
           </Button>
         </section>
 
-        {matches && (
-          <section className="glass-panel rounded-2xl p-6">
-            <h2 className="text-base font-semibold text-ink">Встречные предложения</h2>
-            {matches.length === 0 ? (
-              <p className="mt-4 text-sm text-dim">
-                Пока нет встречных предложений по данному товару. Ваша заявка сохранена и ожидает контрагентов.
+        </>) : (
+          <section className="space-y-4">
+            {ref && (
+              <div className="rounded-xl border border-border bg-background/60 px-4 py-3 text-sm text-dim">
+                Ваша заявка сохранена. Встречные заявки отсортированы по светофору — от более подходящих к менее.
+                <Button variant="link" size="sm" onClick={() => setRef(null)}>Сбросить подбор</Button>
+              </div>
+            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {([["all", "Все"], ["buy", "Покупка"], ["sell", "Продажа"], ["mine", "Мои заявки"]] as const).map(([f, l]) => (
+                <button key={f} type="button" onClick={() => setFilter(f)}
+                  className={cn("rounded-full border px-4 py-1.5 text-sm", filter === f ? "border-brand bg-brand text-brand-foreground" : "border-border text-dim hover:text-ink")}>
+                  {l}
+                </button>
+              ))}
+              <Input className="ml-auto w-full sm:w-64" placeholder="Поиск по заявкам" value={query} onChange={(e) => setQuery(e.target.value)} />
+            </div>
+            {loadingAll ? (
+              <div className="grid place-items-center py-12"><Loader2 className="size-5 animate-spin text-brand" /></div>
+            ) : rows.length === 0 ? (
+              <p className="glass-panel rounded-2xl p-6 text-sm text-dim">
+                {ref ? "Пока нет встречных предложений по данному товару. Ваша заявка сохранена и ожидает контрагентов." : "Заявок пока нет."}
               </p>
             ) : (
-              <div className="mt-4 grid gap-4 md:grid-cols-3">
-                {(["green", "yellow", "red"] as const).map((z) => (
-                  <div key={z}>
-                    <div className="mb-2 flex items-center gap-2 text-sm font-medium text-ink">
-                      <span className={cn("size-2.5 rounded-full", z === "green" ? "bg-emerald-500" : z === "yellow" ? "bg-amber-400" : "bg-destructive")} />
-                      {z === "green" ? "Подходят" : z === "yellow" ? "Частично" : "Слабо"}
+              <div className="space-y-2">
+                {rows.map(({ r, score }) => (
+                  <button key={r.id} type="button" onClick={() => setOpen(r)}
+                    className="glass-panel flex w-full items-center gap-4 rounded-xl p-4 text-left transition-shadow hover:shadow-lg">
+                    {score !== null && <span className={cn("size-3 shrink-0 rounded-full", ZONE_DOT[zoneOf(score)])} />}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full bg-foreground/5 px-2 py-0.5 text-xs text-dim">{r.kind === "buy" ? "Покупка" : "Продажа"}</span>
+                        {r.owner_id === user?.id && <span className="text-xs text-brand">Моя</span>}
+                        {r.response_to && <span className="text-xs text-dim">встречная</span>}
+                      </div>
+                      <div className="mt-1 truncate text-sm font-medium text-ink">{r.title}</div>
+                      <div className="mt-0.5 truncate text-xs text-dim">
+                        Цена: {fmtParam("price", r.params?.price)} · Кол-во: {fmtParam("qty", r.params?.qty)}
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      {matches.filter((m) => m.zone === z).map((m) => (
-                        <div key={m.req.id} className="rounded-xl border border-border bg-background/60 p-3">
-                          <div className="text-sm font-medium text-ink">{m.req.title}</div>
-                          <div className="mt-1 font-mono text-xs text-dim">Совпадение {Math.round(m.score * 100)}%</div>
-                          {m.req.extra && <div className="mt-1 line-clamp-2 text-xs text-dim">{m.req.extra}</div>}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                    {score !== null && (
+                      <div className="text-right">
+                        <div className="font-mono text-sm text-ink">{Math.round(score * 100)}%</div>
+                        <div className="text-xs text-dim">{ZONE_LABEL[zoneOf(score)]}</div>
+                      </div>
+                    )}
+                  </button>
                 ))}
               </div>
             )}
           </section>
         )}
+
+        <Dialog open={!!open} onOpenChange={(v) => !v && setOpen(null)}>
+          <DialogContent className="max-w-lg">
+            {open && (
+              <>
+                <DialogHeader>
+                  <DialogTitle>{open.title}</DialogTitle>
+                </DialogHeader>
+                <div className="text-xs text-dim">
+                  {open.kind === "buy" ? "Покупка" : "Продажа"} · {new Date(open.created_at).toLocaleDateString("ru-RU")}
+                </div>
+                <dl className="divide-y divide-border text-sm">
+                  {[...KEYS]
+                    .sort((a, b) => (open.params?.[b]?.priority ?? 0) - (open.params?.[a]?.priority ?? 0))
+                    .map((k) => (
+                      <div key={k} className="flex justify-between gap-4 py-2">
+                        <dt className="text-dim">{LABELS[k]} <span className="font-mono text-xs">({open.params?.[k]?.priority ?? 0}%)</span></dt>
+                        <dd className="text-right text-ink">{fmtParam(k, open.params?.[k])}</dd>
+                      </div>
+                    ))}
+                </dl>
+                {open.extra && <p className="text-sm text-dim">{open.extra}</p>}
+                {open.attachment_url && (
+                  <a href={open.attachment_url} target="_blank" rel="noreferrer" className="text-sm text-brand underline">Вложение</a>
+                )}
+                {open.owner_id !== user?.id && (
+                  <Button variant="hero" className="h-11 w-full" onClick={() => respond(open)}>
+                    <Reply className="size-4" /> Откликнуться встречной заявкой
+                  </Button>
+                )}
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </AppShell>
   );
