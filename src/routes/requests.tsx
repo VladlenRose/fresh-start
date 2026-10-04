@@ -169,8 +169,10 @@ function RequestsPage() {
     const list = all
       .filter((r) => filter === "all" || (filter === "mine" ? r.owner_id === user?.id : r.kind === filter))
       .filter((r) => !q || r.title.toLowerCase().includes(q) || (r.extra ?? "").toLowerCase().includes(q))
+      // При активном подборе пар свои заявки из соответствий исключаем
+      .filter((r) => !ref || r.owner_id !== user?.id)
       .map((r) => {
-        const counter = ref && r.kind !== ref.kind && r.id !== ref.id && r.owner_id !== user?.id;
+        const counter = ref && r.kind !== ref.kind && r.id !== ref.id;
         const score = counter ? matchScore(ref.params, { ...emptyParams(), ...r.params }, ref.kind) : null;
         return { r, score };
       });
