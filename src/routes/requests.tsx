@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/use-auth";
+import { useRole } from "@/hooks/use-role";
 import { uploadProductImage } from "@/lib/api";
 import { supabase } from "@/integrations/supabase/client";
 import { analyzeRequestText } from "@/lib/requests.functions";
@@ -188,6 +189,8 @@ function RequestsPage() {
   const [ref, setRef] = useState<Ref | null>(null);
   const [open, setOpen] = useState<Stored | null>(null);
   const [respondTo, setRespondTo] = useState<Stored | null>(null);
+  const [editing, setEditing] = useState<Stored | null>(null);
+  const { isAdmin } = useRole();
 
   async function loadAll() {
     setLoadingAll(true);
@@ -227,6 +230,27 @@ function RequestsPage() {
     setOpen(null);
     setMode("form");
     window.scrollTo({ top: 0 });
+  }
+  function startEdit(r: Stored) {
+    setEditing(r);
+    setRespondTo(null);
+    setKind(r.kind);
+    setTitle(r.title);
+    setParams({ ...emptyParams(), ...r.params });
+    setExtra(r.extra ?? "");
+    setOpen(null);
+    setMode("form");
+    window.scrollTo({ top: 0 });
+  }
+  async function remove(r: Stored) {
+    if (!window.confirm(`Удалить заявку «${r.title}»?`)) return;
+    const { data, error } = await supabase.from("trade_requests").delete().eq("id", r.id).select("id");
+    if (error) { toast.error(error.message); return; }
+    if (!data?.length) { toast.error("Нет прав на удаление этой заявки"); return; }
+    setAll((a) => a.filter((x) => x.id !== r.id));
+    if (ref?.id === r.id) setRef(null);
+    setOpen(null);
+    toast.success("Заявка удалена");
   }
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -270,26 +294,46 @@ function RequestsPage() {
     try {
       let attachment: string | null = null;
       if (file) attachment = await uploadProductImage(file);
-      const { data: saved, error } = await supabase
-        .from("trade_requests")
-        .insert({
-          owner_id: user.id,
-          kind,
-          title: title.trim(),
-          params: params as never,
-          extra: extra || null,
-          attachment_url: attachment,
-          response_to: respondTo?.id ?? null,
-        })
-        .select("id")
-        .single();
-      if (error) throw error;
-      setRef({ kind, params, id: saved.id, title: title.trim() });
+      let savedId: string;
+      if (editing) {
+        const { data: upd, error } = await supabase
+          .from("trade_requests")
+          .update({
+            kind,
+            title: title.trim(),
+            params: params as never,
+            extra: extra || null,
+            ...(attachment ? { attachment_url: attachment } : {}),
+          })
+          .eq("id", editing.id)
+          .select("id");
+        if (error) throw error;
+        if (!upd?.length) throw new Error("Нет прав на редактирование этой заявки");
+        savedId = editing.id;
+      } else {
+        const { data: saved, error } = await supabase
+          .from("trade_requests")
+          .insert({
+            owner_id: user.id,
+            kind,
+            title: title.trim(),
+            params: params as never,
+            extra: extra || null,
+            attachment_url: attachment,
+            response_to: respondTo?.id ?? null,
+          })
+          .select("id")
+          .single();
+        if (error) throw error;
+        savedId = saved.id;
+      }
+      setRef({ kind, params, id: savedId, title: title.trim() });
       setRespondTo(null);
+      setEditing(null);
       setFilter(kind === "buy" ? "sell" : "buy");
       setQuery("");
       setMode("registry");
-      toast.success("Заявка сохранена");
+      toast.success(editing ? "Заявка обновлена" : "Заявка сохранена");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Ошибка сохранения");
     } finally {
@@ -310,6 +354,12 @@ function RequestsPage() {
         </div>
 
         {mode === "form" ? (<>
+        {mode === "form" && editing && (
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-border px-4 py-2 text-sm text-dim">
+            <span>Редактирование заявки: <b className="text-ink">{editing.title}</b></span>
+            <button type="button" className="text-brand underline" onClick={() => { setEditing(null); setTitle(""); setParams(emptyParams()); setExtra(""); }}>Отменить</button>
+          </div>
+        )}
         {respondTo && (
           <div className="flex items-center justify-between rounded-xl border border-brand/30 bg-brand/5 px-4 py-3 text-sm text-ink">
             <span>Встречная заявка на: <b>{respondTo.title}</b> ({respondTo.kind === "buy" ? "покупка" : "продажа"})</span>
@@ -539,6 +589,16 @@ function RequestsPage() {
                   <Button variant="hero" className="h-11 w-full" onClick={() => respond(open)}>
                     <Reply className="size-4" /> Откликнуться встречной заявкой
                   </Button>
+                )}
+                {(open.owner_id === user?.id || isAdmin) && (
+                  <div className="flex gap-2">
+                    <Button variant="outline" className="h-10 flex-1 rounded-full" onClick={() => startEdit(open)}>
+                      Редактировать
+                    </Button>
+                    <Button variant="outline" className="h-10 flex-1 rounded-full text-destructive" onClick={() => void remove(open)}>
+                      Удалить
+                    </Button>
+                  </div>
                 )}
               </>
             )}
