@@ -354,6 +354,12 @@ function RequestsPage() {
         </div>
 
         {mode === "form" ? (<>
+        {mode === "form" && editing && (
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-border px-4 py-2 text-sm text-dim">
+            <span>Редактирование заявки: <b className="text-ink">{editing.title}</b></span>
+            <button type="button" className="text-brand underline" onClick={() => { setEditing(null); setTitle(""); setParams(emptyParams()); setExtra(""); }}>Отменить</button>
+          </div>
+        )}
         {respondTo && (
           <div className="flex items-center justify-between rounded-xl border border-brand/30 bg-brand/5 px-4 py-3 text-sm text-ink">
             <span>Встречная заявка на: <b>{respondTo.title}</b> ({respondTo.kind === "buy" ? "покупка" : "продажа"})</span>
