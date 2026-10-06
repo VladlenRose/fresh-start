@@ -394,7 +394,23 @@ function RequestsPage() {
               <Button variant="outline" onClick={() => fileRef.current?.click()}>
                 <Upload className="size-4" /> Загрузить фото / спецификацию
               </Button>
-              {file && <span className="truncate text-xs text-dim">{file.name}</span>}
+              {file && (
+  <div className="flex items-center gap-1.5 rounded-md border border-border bg-muted/50 px-2.5 py-1 text-xs">
+    <span className="max-w-[220px] truncate text-foreground">{file.name}</span>
+    <button
+      type="button"
+      onClick={() => {
+        setFile(null);
+        if (fileRef.current) fileRef.current.value = "";
+      }}
+      className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
+      title="Удалить прикрепленный файл"
+    >
+      <X className="size-3.5" />
+    </button>
+  </div>
+)}
+
             </div>
           </div>
 
