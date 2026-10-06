@@ -70,7 +70,7 @@ const emptyParams = (): Params =>
 
 type Stored = { id: string; owner_id: string; kind: Kind; title: string; params: Params; extra: string | null; created_at: string; response_to: string | null; attachment_url: string | null };
 type Zone = "green" | "yellow" | "red";
-type Ref = { kind: Kind; params: Params; id: string };
+type Ref = { kind: Kind; params: Params; id: string; title: string };
 
 const n = (s: string) => (s.trim() === "" ? null : Number(s));
 
@@ -95,8 +95,44 @@ const mid = (p: Param) => {
   return ((a ?? b!) + (b ?? a!)) / 2;
 };
 
-/** Скор совпадения с учётом приоритета цены: продавцу выгодна более высокая встречная цена, покупателю — более низкая. */
-function matchScore(mine: Params, other: Params, myKind: Kind) {
+function stemWord(w: string): string {
+  return w
+    .toLowerCase()
+    .replace(/[^а-яёa-z0-9]/gi, "")
+    .replace(/(ами|ями|ов|ев|ей|ия|ья|ие|ье|ам|ям|ом|ем|ах|ях|ую|юю|ое|ее|ые|ие|ый|ий|ой|а|я|о|е|ы|и|у|ю)$/u, "");
+}
+
+const SEMANTIC_CLUSTERS: string[][] = [
+  ["дверь", "окно", "стеклопакет", "профиль", "фурнитур", "наличник"],
+  ["кирпич", "блок", "цемент", "бетон", "раствор", "песок", "щебень"],
+  ["арматур", "прокат", "труб", "швеллер", "балк", "уголок", "лист"],
+  ["куртк", "костюм", "спецодежд", "перчатк", "обув", "ботинок", "каск"],
+  ["ведро", "лопат", "метл", "таз", "инвентар", "бочк", "канистр"],
+  ["стол", "стул", "кресл", "шкаф", "диван", "полк", "тумб"],
+  ["ноутбук", "компьютер", "сервер", "монитор", "клавиатур", "мыш"],
+];
+
+function titleSimilarity(t1: string, t2: string): number {
+  const w1 = t1.toLowerCase().split(/\s+/).map(stemWord).filter((s) => s.length > 2);
+  const w2 = t2.toLowerCase().split(/\s+/).map(stemWord).filter((s) => s.length > 2);
+  if (!w1.length || !w2.length) return 0.5;
+
+  const exact = w1.some((a) => w2.some((b) => a === b || a.startsWith(b) || b.startsWith(a)));
+  if (exact) return 1.0;
+
+  for (const cluster of SEMANTIC_CLUSTERS) {
+    const has1 = w1.some((w) => cluster.some((c) => w.startsWith(c) || c.startsWith(w)));
+    const has2 = w2.some((w) => cluster.some((c) => w.startsWith(c) || c.startsWith(w)));
+    if (has1 && has2) return 0.5;
+  }
+
+  return 0.0;
+}
+
+function matchScore(mine: Params, other: Params, myKind: Kind, myTitle = "", otherTitle = "") {
+  const titleSim = titleSimilarity(myTitle, otherTitle);
+  if (titleSim === 0) return 0;
+
   let wsum = 0;
   let total = 0;
   for (const k of KEYS) {
@@ -110,12 +146,14 @@ function matchScore(mine: Params, other: Params, myKind: Kind) {
   const m1 = mid(mine.price), m2 = mid(other.price);
   if (!mine.price.ignore && !other.price.ignore && m1 && m2 && m1 > 0 && m2 > 0) {
     const ratio = m2 / m1;
-    const weight = 0.5 + mine.price.priority / 100; // приоритет усиливает коэффициент
+    const weight = 0.5 + mine.price.priority / 100;
     const coef = Math.pow(ratio, weight);
     score = myKind === "sell" ? score * coef : score / coef;
   }
+  score = score * titleSim;
   return Math.max(0, Math.min(1, score));
 }
+
 
 const zoneOf = (s: number): Zone => (s >= 0.75 ? "green" : s >= 0.4 ? "yellow" : "red");
 const ZONE_DOT: Record<Zone, string> = { green: "bg-emerald-500", yellow: "bg-amber-400", red: "bg-destructive" };
@@ -173,7 +211,7 @@ function RequestsPage() {
       .filter((r) => !ref || r.owner_id !== user?.id)
       .map((r) => {
         const counter = ref && r.kind !== ref.kind && r.id !== ref.id;
-        const score = counter ? matchScore(ref.params, { ...emptyParams(), ...r.params }, ref.kind) : null;
+        const score = counter ? matchScore(ref.params, { ...emptyParams(), ...r.params }, ref.kind, ref.title, r.title) : null;
         return { r, score };
       });
     if (ref) list.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
@@ -246,7 +284,7 @@ function RequestsPage() {
         .select("id")
         .single();
       if (error) throw error;
-      setRef({ kind, params, id: saved.id });
+      setRef({ kind, params, id: saved.id, title: title.trim() });
       setRespondTo(null);
       setFilter(kind === "buy" ? "sell" : "buy");
       setQuery("");
