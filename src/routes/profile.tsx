@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
+import { RoleAdmin } from "@/components/role-admin";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -129,6 +130,9 @@ function Profile() {
             Выйти из аккаунта
           </Button>
         </section>
+      </div>
+      <div className="mt-6">
+        <RoleAdmin />
       </div>
     </AppShell>
   );
