@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2, Search, Sparkles, Upload, X, Reply } from "lucide-react";
+import { Loader2, Search, Sparkles, Upload, X, Reply, ScanText } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
@@ -16,6 +16,7 @@ import { useRole } from "@/hooks/use-role";
 import { uploadProductImage } from "@/lib/api";
 import { supabase } from "@/integrations/supabase/client";
 import { analyzeRequestText } from "@/lib/requests.functions";
+import { recognizeImageText } from "@/lib/ocr.functions";
 import { cn } from "@/lib/utils";
 
 const TITLE = "Торговые заявки AI-Mall — купить или продать с ИИ";
@@ -173,6 +174,9 @@ function fmtParam(k: ParamKey, p?: Param) {
 function RequestsPage() {
   const { user } = useAuth();
   const analyze = useServerFn(analyzeRequestText);
+  const ocr = useServerFn(recognizeImageText);
+  const [ocrBusy, setOcrBusy] = useState(false);
+  const ocrInput = useRef<HTMLInputElement>(null);
   const [kind, setKind] = useState<Kind>("buy");
   const [text, setText] = useState("");
   const [title, setTitle] = useState("");
@@ -262,11 +266,35 @@ function RequestsPage() {
   const setP = (k: ParamKey, patch: Partial<Param>) =>
     setParams((p) => ({ ...p, [k]: { ...p[k], ...patch } }));
 
-  async function runAnalyze() {
-    if (!text.trim()) { toast.error("Введите текст заявки"); return; }
+  async function runOcr(f: File) {
+    if (!f.type.startsWith("image/")) { toast.error("Загрузите изображение (JPG, PNG, WEBP)"); return; }
+    if (f.size > 8 * 1024 * 1024) { toast.error("Файл больше 8 МБ"); return; }
+    setOcrBusy(true);
+    try {
+      const dataUrl = await new Promise<string>((res, rej) => {
+        const fr = new FileReader();
+        fr.onload = () => res(String(fr.result));
+        fr.onerror = () => rej(new Error("Не удалось прочитать файл"));
+        fr.readAsDataURL(f);
+      });
+      const { text: recognized } = await ocr({ data: { image: dataUrl } });
+      if (!recognized.trim()) { toast.error("Текст на изображении не найден"); return; }
+      setText(recognized);
+      toast.success("Текст распознан, разбираю параметры…");
+      await runAnalyze(recognized);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось распознать текст");
+    } finally {
+      setOcrBusy(false);
+    }
+  }
+
+  async function runAnalyze(src?: string) {
+    const input = (src ?? text).trim();
+    if (!input) { toast.error("Введите текст заявки"); return; }
     setAnalyzing(true);
     try {
-      const r = await analyze({ data: { text } });
+      const r = await analyze({ data: { text: input.slice(0, 5000) } });
       const s = (v: number | null) => (v === null ? "" : String(Math.round(v * 100) / 100));
       setTitle(r.title ?? "");
       setParams((p) => ({
@@ -392,7 +420,18 @@ function RequestsPage() {
           />
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => setText("")}>Очистить текст</Button>
-            <Button onClick={runAnalyze} disabled={analyzing}>
+            <input
+              ref={ocrInput}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void runOcr(f); }}
+            />
+            <Button variant="outline" onClick={() => ocrInput.current?.click()} disabled={ocrBusy || analyzing}>
+              {ocrBusy ? <Loader2 className="size-4 animate-spin" /> : <ScanText className="size-4" />}
+              {ocrBusy ? "Распознаю…" : "Загрузить фото / скан"}
+            </Button>
+            <Button onClick={() => runAnalyze()} disabled={analyzing || ocrBusy}>
               {analyzing ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
               Анализировать текст
             </Button>
