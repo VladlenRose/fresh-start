@@ -291,6 +291,22 @@ function RequestsPage() {
     }
   }
 
+  function handlePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (file) {
+          e.preventDefault();
+          void runOcr(file);
+          break;
+        }
+      }
+    }
+  }
+
+  
   async function runAnalyze(src?: string) {
     const input = (src ?? text).trim();
     if (!input) { toast.error("Введите текст заявки"); return; }
@@ -418,6 +434,7 @@ function RequestsPage() {
             rows={6}
             value={text}
             onChange={(e) => setText(e.target.value)}
+            onPaste={handlePaste}
             placeholder="Например: Купим 500 кружек с логотипом по 250 ₽, поставка за 14 дней, оплата 50/50, доставка ТК"
           />
           <div className="flex flex-wrap gap-2">
