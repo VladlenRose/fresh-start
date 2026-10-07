@@ -267,8 +267,9 @@ function RequestsPage() {
     setParams((p) => ({ ...p, [k]: { ...p[k], ...patch } }));
 
   async function runOcr(f: File) {
-    if (!f.type.startsWith("image/")) { toast.error("Загрузите изображение (JPG, PNG, WEBP)"); return; }
-    if (f.size > 8 * 1024 * 1024) { toast.error("Файл больше 8 МБ"); return; }
+    const isPdf = f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf");
+    if (!isPdf && !f.type.startsWith("image/")) { toast.error("Загрузите изображение или PDF"); return; }
+    if (f.size > 10 * 1024 * 1024) { toast.error("Файл больше 10 МБ"); return; }
     setOcrBusy(true);
     try {
       const dataUrl = await new Promise<string>((res, rej) => {
@@ -277,7 +278,8 @@ function RequestsPage() {
         fr.onerror = () => rej(new Error("Не удалось прочитать файл"));
         fr.readAsDataURL(f);
       });
-      const { text: recognized } = await ocr({ data: { image: dataUrl } });
+      const fixed = isPdf ? dataUrl.replace(/^data:[^;]*;/, "data:application/pdf;") : dataUrl;
+      const { text: recognized } = await ocr({ data: { image: fixed, name: f.name } });
       if (!recognized.trim()) { toast.error("Текст на изображении не найден"); return; }
       setText(recognized);
       toast.success("Текст распознан, разбираю параметры…");
@@ -423,13 +425,13 @@ function RequestsPage() {
             <input
               ref={ocrInput}
               type="file"
-              accept="image/*"
+              accept="image/*,application/pdf,.pdf"
               className="hidden"
               onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void runOcr(f); }}
             />
             <Button variant="outline" onClick={() => ocrInput.current?.click()} disabled={ocrBusy || analyzing}>
               {ocrBusy ? <Loader2 className="size-4 animate-spin" /> : <ScanText className="size-4" />}
-              {ocrBusy ? "Распознаю…" : "Загрузить фото / скан"}
+              {ocrBusy ? "Распознаю…" : "Загрузить фото / PDF"}
             </Button>
             <Button onClick={() => runAnalyze()} disabled={analyzing || ocrBusy}>
               {analyzing ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}

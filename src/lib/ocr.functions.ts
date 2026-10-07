@@ -7,7 +7,7 @@ const PROMPT = `Ты — OCR. Распознай весь текст на изо
 
 export const recognizeImageText = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
-    z.object({ image: z.string().regex(/^data:image\/[a-z0-9.+-]+;base64,/i).max(12_000_000) }).parse(d),
+    z.object({ image: z.string().regex(/^data:(image\/[a-z0-9.+-]+|application\/pdf);base64,/i).max(16_000_000), name: z.string().max(200).optional() }).parse(d),
   )
   .handler(async ({ data }): Promise<{ text: string }> => {
     const key = process.env["LOVABLE_API_KEY"];
@@ -30,8 +30,10 @@ export const recognizeImageText = createServerFn({ method: "POST" })
           {
             role: "user",
             content: [
-              { type: "input_text", text: "Распознай текст на изображении." },
-              { type: "input_image", image_url: data.image },
+              { type: "input_text", text: "Распознай весь текст документа." },
+              data.image.startsWith("data:application/pdf")
+                ? { type: "input_file", filename: data.name || "document.pdf", file_data: data.image }
+                : { type: "input_image", image_url: data.image },
             ],
           },
         ],
