@@ -7,72 +7,54 @@ const PROMPT = `Ты — OCR. Распознай весь текст на изо
 
 export const recognizeImageText = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
-    z.object({ image: z.string().regex(/^data:(image\/[a-z0-9.+-]+|application\/pdf);base64,/i).max(16_000_000), name: z.string().max(200).optional() }).parse(d),
+    z.object({
+      image: z.string().regex(/^data:(image\/[a-z0-9.+-]+|application\/pdf);base64,/i).max(16_000_000),
+      name: z.string().max(200).optional(),
+    }).parse(d),
   )
   .handler(async ({ data }): Promise<{ text: string }> => {
-    const key = process.env["LOVABLE_API_KEY"];
-    if (!key) throw new Error("Сервис распознавания не настроен");
+    // PDF пока не поддерживается через Groq (см. ниже)
+    if (data.image.startsWith("data:application/pdf")) {
+      throw new Error("PDF пока не поддерживается. Загрузите фото страницы.");
+    }
 
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
+    // Ключ читается из окружения сервера (.env или секреты)
+    const key = process.env["GROQ_API_KEY"];
+    if (!key) throw new Error("Не задан GROQ_API_KEY");
+
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
+        Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
-        "Lovable-API-Key": key,
-        "X-Lovable-AIG-SDK": "fetch",
       },
       body: JSON.stringify({
-        model: "openai/gpt-6-astra",
-        stream: true,
-        store: false,
-        reasoning: { effort: "low" },
-        instructions: PROMPT,
-        input: [
+        model: "qwen/qwen3.8-27b",
+        temperature: 0,
+        // Отключает режим рассуждений, чтобы в ответе не было лишнего текста.
+        // Если Groq вернёт ошибку 400 про этот параметр, удалите строку.
+        reasoning_effort: "none",
+        messages: [
+          { role: "system", content: PROMPT },
           {
             role: "user",
             content: [
-              { type: "input_text", text: "Распознай весь текст документа." },
-              data.image.startsWith("data:application/pdf")
-                ? { type: "input_file", filename: data.name || "document.pdf", file_data: data.image }
-                : { type: "input_image", image_url: data.image },
+              { type: "text", text: "Распознай весь текст документа." },
+              { type: "image_url", image_url: { url: data.image } },
             ],
           },
         ],
       }),
     });
 
-    if (!res.ok || !res.body) {
+    if (!res.ok) {
       let msg = "";
       try { msg = (await res.json())?.error?.message ?? ""; } catch { /* ignore */ }
       if (res.status === 429) throw new Error("Слишком много запросов, попробуйте через минуту");
-      if (res.status === 402) throw new Error(msg || "Закончились средства на ИИ-распознавание");
       throw new Error(msg || `Сервис распознавания недоступен (${res.status})`);
     }
 
-    const reader = res.body.getReader();
-    const dec = new TextDecoder();
-    let buf = "";
-    let out = "";
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += dec.decode(value, { stream: true });
-      let i: number;
-      while ((i = buf.indexOf("\n")) >= 0) {
-        const line = buf.slice(0, i).trim();
-        buf = buf.slice(i + 1);
-        if (!line.startsWith("data:")) continue;
-        const payload = line.slice(5).trim();
-        if (!payload || payload === "[DONE]") continue;
-        try {
-          const ev = JSON.parse(payload);
-          if (ev.type === "response.output_text.delta" && typeof ev.delta === "string") out += ev.delta;
-          else if (ev.type === "error" || ev.type === "response.failed") {
-            throw new Error(ev.error?.message ?? ev.response?.error?.message ?? "Ошибка распознавания");
-          }
-        } catch (e) {
-          if (e instanceof Error && !(e instanceof SyntaxError)) throw e;
-        }
-      }
-    }
-    return { text: out.trim() };
+    const json = await res.json();
+    const text: string = json?.choices?.[0]?.message?.content ?? "";
+    return { text: text.trim() };
   });
