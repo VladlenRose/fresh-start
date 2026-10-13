@@ -17,6 +17,7 @@ import { uploadProductImage } from "@/lib/api";
 import { supabase } from "@/integrations/supabase/client";
 import { analyzeRequestText } from "@/lib/requests.functions";
 import { recognizeImageText } from "@/lib/ocr.functions";
+import { ProductPicker, type PickedProduct } from "@/components/product-picker";
 import { cn } from "@/lib/utils";
 
 const TITLE = "Торговые заявки AI-Mall — купить или продать с ИИ";
@@ -180,6 +181,7 @@ function RequestsPage() {
   const [kind, setKind] = useState<Kind>("buy");
   const [text, setText] = useState("");
   const [title, setTitle] = useState("");
+  const [product, setProduct] = useState<PickedProduct | null>(null);
   const [params, setParams] = useState<Params>(emptyParams);
   const [extra, setExtra] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -350,6 +352,7 @@ function RequestsPage() {
             params: params as never,
             extra: extra || null,
             ...(attachment ? { attachment_url: attachment } : {}),
+            ...(product ? { product_id: product.id } : {}),
           })
           .eq("id", editing.id)
           .select("id");
@@ -367,6 +370,7 @@ function RequestsPage() {
             extra: extra || null,
             attachment_url: attachment,
             response_to: respondTo?.id ?? null,
+            product_id: product?.id ?? null,
           })
           .select("id")
           .single();
@@ -458,6 +462,10 @@ function RequestsPage() {
         </section>
 
         <section className="glass-panel space-y-4 rounded-2xl p-6">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-ink">Товар из каталога</label>
+            <ProductPicker value={product} onChange={(p) => { setProduct(p); if (p && !title.trim()) setTitle(p.title); }} />
+          </div>
           <div>
             <label className="text-sm font-medium text-ink">Название товара или услуги</label>
             <Input className="mt-2" value={title} onChange={(e) => setTitle(e.target.value)} />
