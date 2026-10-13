@@ -92,10 +92,11 @@ export type Database = {
         Row: {
           category: string | null
           created_at: string
+          created_by: string | null
           description: string | null
           id: string
           image_id: string | null
-          owner_id: string
+          owner_id: string | null
           price: number
           rating: number
           status: string
@@ -106,10 +107,11 @@ export type Database = {
         Insert: {
           category?: string | null
           created_at?: string
+          created_by?: string | null
           description?: string | null
           id?: string
           image_id?: string | null
-          owner_id: string
+          owner_id?: string | null
           price?: number
           rating?: number
           status?: string
@@ -120,10 +122,11 @@ export type Database = {
         Update: {
           category?: string | null
           created_at?: string
+          created_by?: string | null
           description?: string | null
           id?: string
           image_id?: string | null
-          owner_id?: string
+          owner_id?: string | null
           price?: number
           rating?: number
           status?: string
@@ -304,6 +307,16 @@ export type Database = {
         Returns: undefined
       }
       claim_first_admin: { Args: never; Returns: boolean }
+      create_product_from_request: {
+        Args: {
+          _category: string
+          _description: string
+          _image_id: string
+          _title: string
+          _unit: string
+        }
+        Returns: string
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
