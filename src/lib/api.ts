@@ -455,3 +455,25 @@ export async function deleteDocument(id: string) {
   const { error } = await supabase.from("documents").delete().eq("id", id);
   if (error) throw error;
 }
+
+/* ---------------- product lock ---------------- */
+
+/** Сколько торговых заявок ссылается на каждый товар (товар с заявками зафиксирован). */
+export async function productRequestCounts(ids: string[]) {
+  if (!ids.length) return {} as Record<string, number>;
+  const { data, error } = await supabase.rpc("product_request_counts", { _ids: ids });
+  if (error) throw error;
+  const out: Record<string, number> = {};
+  for (const r of data ?? []) out[r.product_id] = Number(r.cnt);
+  return out;
+}
+
+export async function listProductRequests(productId: string) {
+  const { data, error } = await supabase
+    .from("trade_requests")
+    .select("id, kind, title, product_snapshot, created_at")
+    .eq("product_id", productId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}

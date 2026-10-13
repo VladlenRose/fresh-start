@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -211,6 +211,8 @@ export type Database = {
           kind: string
           owner_id: string
           params: Json
+          product_id: string | null
+          product_snapshot: Json | null
           response_to: string | null
           title: string
         }
@@ -222,6 +224,8 @@ export type Database = {
           kind: string
           owner_id: string
           params?: Json
+          product_id?: string | null
+          product_snapshot?: Json | null
           response_to?: string | null
           title: string
         }
@@ -233,10 +237,19 @@ export type Database = {
           kind?: string
           owner_id?: string
           params?: Json
+          product_id?: string | null
+          product_snapshot?: Json | null
           response_to?: string | null
           title?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "trade_requests_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "trade_requests_response_to_fkey"
             columns: ["response_to"]
@@ -299,6 +312,13 @@ export type Database = {
         Returns: boolean
       }
       my_role: { Args: never; Returns: Database["public"]["Enums"]["app_role"] }
+      product_request_counts: {
+        Args: { _ids: string[] }
+        Returns: {
+          cnt: number
+          product_id: string
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "user"
