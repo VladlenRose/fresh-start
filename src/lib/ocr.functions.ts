@@ -18,15 +18,15 @@ export const recognizeImageText = createServerFn({ method: "POST" })
       throw new Error("PDF пока не поддерживается. Загрузите фото страницы.");
     }
 
-    // Ключ читается из окружения сервера (.env или секреты)
-        // Читаем «обрезанный» ключ из окружения сервера
-    let key = process.env["GROQ_API_KEY"];
-    if (!key) throw new Error("Не задан GROQ_API_KEY");
-
-    // Если ключ начинается не с 'gsk_', автоматически дописываем префикс
-    if (!key.startsWith("gsk_")) {
-        key = "gsk_" + key;
+  // Читаем обе части ключа из окружения сервера и склеиваем их
+    const key1 = process.env["GROQ_API_KEY1"];
+    const key2 = process.env["GROQ_API_KEY2"];
+    
+    if (!key1 || !key2) {
+      throw new Error("Не заданы GROQ_API_KEY1 или GROQ_API_KEY2");
     }
+
+    const key = key1 + key2;
 
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
