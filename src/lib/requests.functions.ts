@@ -96,8 +96,8 @@ const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null
 export const analyzeRequestText = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ text: z.string().min(1).max(5000) }).parse(d))
   .handler(async ({ data }): Promise<Extracted> => {
-    const key = process.env["GROQ_API_KEY"];
-    if (!key) throw new Error("Ключ Groq не настроен");
+    const key = "gsk_" + process.env["GROQ_API_KEY"];
+    if (!key || key === "gsk_undefined") throw new Error("Не задан GROQ_API_KEY");
 
     // Запускаем 3 микро-запроса параллельно
     const [titleRes, qtyPriceRes, termsRes] = await Promise.all([
