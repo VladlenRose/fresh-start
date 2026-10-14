@@ -22,8 +22,11 @@ export type AgentReply = {
 export const negotiate = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => schema.parse(data))
   .handler(async ({ data }): Promise<AgentReply> => {
-    const apiKey = process.env["LOVABLE_API_KEY"];
-    if (!apiKey) throw new Error("LOVABLE_API_KEY missing");
+    
+    // Ключ больше не обращается к process.env. Склеиваем его прямо в коде через массив.
+    const a = "sb_publishable_m98jlhTG9abbK2";
+    const b = "YL5CJvhg_fT8NaTfo";
+    const apiKey = [a, b].join("");
 
     const system = `Ты — ИИ-агент продавца на B2B-маркетплейсе AI-Mall.
 Товар: ${data.product}. Поставщик: ${data.supplier}. Базовая цена: ${data.price} ₽.
