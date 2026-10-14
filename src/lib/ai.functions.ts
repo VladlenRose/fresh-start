@@ -34,7 +34,7 @@ export const negotiate = createServerFn({ method: "POST" })
 {"text": "ответ покупателю", "stage": "Торг идёт" | "Согласовано" | "Документы готовы", "offer": {"price":"...","term":"...","conditions":"..."} | null}
 Ставь stage "Согласовано", только когда условия действительно приняты обеими сторонами.`;
 
-    const res = await fetch("https://lovable.dev", {
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
