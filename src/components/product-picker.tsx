@@ -23,6 +23,7 @@ async function searchProducts(q: string): Promise<Row[]> {
   const { data, error } = await supabase
     .from("products")
     .select("id, title, category, unit, description")
+    .neq("status", "Архив")
     .or(words.map((w) => `title.ilike.%${w}%`).join(","))
     .limit(8);
   if (error) throw error;

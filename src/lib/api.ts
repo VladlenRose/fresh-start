@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export type ProductStatus = "Активен" | "На модерации" | "Завершён";
+export type ProductStatus = "Активен" | "На модерации" | "Завершён" | "Архив";
 export type NegotiationStage = "Торг идёт" | "Согласовано" | "Документы готовы";
 export type DocStatus = "Подписан" | "Ожидает подписи" | "Черновик";
 
@@ -200,6 +200,37 @@ export async function listProducts() {
     .limit(100);
   if (error) throw error;
   return (data ?? []).map(toProduct);
+}
+
+/** Каталог: без архивных (объединённых) товаров. */
+export async function listCatalogProducts() {
+  const { data, error } = await supabase
+    .from("products")
+    .select("*")
+    .neq("status", "Архив")
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (error) throw error;
+  return (data ?? []).map(toProduct);
+}
+
+/** Для администратора: активные товары без владельца. */
+export async function listUnownedProducts() {
+  const { data, error } = await supabase
+    .from("products")
+    .select("*")
+    .is("owner_id", null)
+    .neq("status", "Архив")
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (error) throw error;
+  return (data ?? []).map(toProduct);
+}
+
+export async function mergeProducts(keepId: string, dupId: string) {
+  const { data, error } = await supabase.rpc("admin_merge_products", { _keep: keepId, _dup: dupId });
+  if (error) throw error;
+  return Number(data ?? 0);
 }
 
 export async function listMyProducts(userId: string) {

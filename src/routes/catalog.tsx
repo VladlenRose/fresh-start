@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { useAuth } from "@/hooks/use-auth";
-import { createMessage, createThread, imageUrl, listProducts, type Product } from "@/lib/api";
+import { createMessage, createThread, imageUrl, listCatalogProducts, type Product } from "@/lib/api";
 
 import { CATEGORIES, fallbackImage } from "@/lib/catalog-meta";
 import { cn } from "@/lib/utils";
@@ -41,7 +41,7 @@ function Catalog() {
   const [maxPrice, setMaxPrice] = useState(200000);
   const [minRating, setMinRating] = useState(0);
 
-  const productsQuery = useQuery({ queryKey: ["products"], queryFn: listProducts });
+  const productsQuery = useQuery({ queryKey: ["products", "catalog"], queryFn: listCatalogProducts });
   const products = productsQuery.data ?? [];
 
   const suggestions = useMemo(() => {
