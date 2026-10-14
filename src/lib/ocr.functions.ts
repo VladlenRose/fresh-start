@@ -19,8 +19,14 @@ export const recognizeImageText = createServerFn({ method: "POST" })
     }
 
     // Ключ читается из окружения сервера (.env или секреты)
-    const key = process.env["GROQ_API_KEY"];
+        // Читаем «обрезанный» ключ из окружения сервера
+    let key = process.env["GROQ_API_KEY"];
     if (!key) throw new Error("Не задан GROQ_API_KEY");
+
+    // Если ключ начинается не с 'gsk_', автоматически дописываем префикс
+    if (!key.startsWith("gsk_")) {
+        key = "gsk_" + key;
+    }
 
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
