@@ -15,6 +15,13 @@
       "when": 1791934634705,
       "tag": "0001_products_from_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791936620253,
+      "tag": "0002_admin_unowned_products_and_merge",
+      "breakpoints": true
     }
   ]
 }
