@@ -23,13 +23,8 @@ export const negotiate = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => schema.parse(data))
   .handler(async ({ data }): Promise<AgentReply> => {
     
-   // Сначала проверяем, что обе части вообще прочитались из файла .env
-    if (!process.env["GROQ_API_KEY1"] || !process.env["GROQ_API_KEY2"]) {
-        throw new Error("Не задан GROQ_API_KEY");
-    }
-
-    // Если всё на месте — склеиваем через плюс
-    const apiKey = process.env["GROQ_API_KEY1"] + process.env["GROQ_API_KEY2"];
+    const apiKey = process.env["LOVABLE_API_KEY"];
+    if (!apiKey) throw new Error("LOVABLE_API_KEY missing");
 
     const system = `Ты — ИИ-агент продавца на B2B-маркетплейсе AI-Mall.
 Товар: ${data.product}. Поставщик: ${data.supplier}. Базовая цена: ${data.price} ₽.
