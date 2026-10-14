@@ -24,8 +24,8 @@ export const negotiate = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<AgentReply> => {
     
     // Ключ больше не обращается к process.env. Склеиваем его прямо в коде через массив.
-    const a = "sb_publishable_m98jlhTG9abbK2";
-    const b = "YL5CJvhg_fT8NaTfo";
+    const a = "gsk_cefiqDpbyfpzJlb8A2IhW";
+    const b = "Gdyb3FYviMchodvSLHUYx71lt440i9q";
     const apiKey = [a, b].join("");
 
     const system = `Ты — ИИ-агент продавца на B2B-маркетплейсе AI-Mall.
