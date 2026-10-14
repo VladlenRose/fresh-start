@@ -23,10 +23,9 @@ export const negotiate = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => schema.parse(data))
   .handler(async ({ data }): Promise<AgentReply> => {
     
-    // Ключ больше не обращается к process.env. Склеиваем его прямо в коде через массив.
-    const a = "gsk_cefiqDpbyfpzJlb8A2IhW";
-    const b = "Gdyb3FYviMchodvSLHUYx71lt440i9q";
-    const apiKey = [a, b].join("");
+    // Прямое чтение полного ключа из .env без изменений
+    const apiKey = process.env["GROQ_API_KEY"];
+    if (!apiKey) throw new Error("Не задан GROQ_API_KEY");
 
     const system = `Ты — ИИ-агент продавца на B2B-маркетплейсе AI-Mall.
 Товар: ${data.product}. Поставщик: ${data.supplier}. Базовая цена: ${data.price} ₽.
@@ -36,7 +35,7 @@ export const negotiate = createServerFn({ method: "POST" })
 {"text": "ответ покупателю", "stage": "Торг идёт" | "Согласовано" | "Документы готовы", "offer": {"price":"...","term":"...","conditions":"..."} | null}
 Ставь stage "Согласовано", только когда условия действительно приняты обеими сторонами.`;
 
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const res = await fetch("https://lovable.dev", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
