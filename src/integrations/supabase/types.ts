@@ -96,6 +96,7 @@ export type Database = {
           description: string | null
           id: string
           image_id: string | null
+          merged_into: string | null
           owner_id: string | null
           price: number
           rating: number
@@ -111,6 +112,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_id?: string | null
+          merged_into?: string | null
           owner_id?: string | null
           price?: number
           rating?: number
@@ -126,6 +128,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_id?: string | null
+          merged_into?: string | null
           owner_id?: string | null
           price?: number
           rating?: number
@@ -134,7 +137,15 @@ export type Database = {
           title?: string
           unit?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "products_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -298,6 +309,10 @@ export type Database = {
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }[]
+      }
+      admin_merge_products: {
+        Args: { _dup: string; _keep: string }
+        Returns: number
       }
       admin_set_role: {
         Args: {
