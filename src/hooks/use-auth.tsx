@@ -32,7 +32,10 @@ type AuthContextValue = {
   refresh: () => Promise<void>;
 };
 
-const AuthContext = createContext<AuthContextValue | null>(null);
+// Keep one context instance across hot reloads: a reloaded module would otherwise
+// create a new context that the already-mounted provider doesn't supply.
+const g = globalThis as unknown as { __aimallAuthCtx?: React.Context<AuthContextValue | null> };
+const AuthContext = (g.__aimallAuthCtx ??= createContext<AuthContextValue | null>(null));
 
 function toAuthUser(raw: {
   id: string;
