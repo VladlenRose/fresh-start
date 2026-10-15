@@ -17,7 +17,7 @@ import { uploadProductImage } from "@/lib/api";
 import { supabase } from "@/integrations/supabase/client";
 import { analyzeRequestText } from "@/lib/requests.functions";
 import { recognizeImageText } from "@/lib/ocr.functions";
-import { ProductPicker, type PickedProduct } from "@/components/product-picker";
+import { ProductPicker, useProductSearch, type PickedProduct } from "@/components/product-picker";
 import { cn } from "@/lib/utils";
 
 const TITLE = "Торговые заявки AI-Mall — купить или продать с ИИ";
@@ -71,9 +71,9 @@ const emptyParam = (): Param => ({ priority: 50, ignore: false, min: "", max: ""
 const emptyParams = (): Params =>
   Object.fromEntries(KEYS.map((k) => [k, emptyParam()])) as Params;
 
-type Stored = { id: string; owner_id: string; kind: Kind; title: string; params: Params; extra: string | null; created_at: string; response_to: string | null; attachment_url: string | null };
+type Stored = { id: string; owner_id: string; kind: Kind; title: string; params: Params; extra: string | null; created_at: string; response_to: string | null; attachment_url: string | null; product_id: string | null };
 type Zone = "green" | "yellow" | "red";
-type Ref = { kind: Kind; params: Params; id: string; title: string };
+type Ref = { kind: Kind; params: Params; id: string; productId: string };
 
 const n = (s: string) => (s.trim() === "" ? null : Number(s));
 
@@ -98,42 +98,16 @@ const mid = (p: Param) => {
   return ((a ?? b!) + (b ?? a!)) / 2;
 };
 
-function stemWord(w: string): string {
-  return w
-    .toLowerCase()
-    .replace(/[^а-яёa-z0-9]/gi, "")
-    .replace(/(ами|ями|ов|ев|ей|ия|ья|ие|ье|ам|ям|ом|ем|ах|ях|ую|юю|ое|ее|ые|ие|ый|ий|ой|а|я|о|е|ы|и|у|ю)$/u, "");
+/** Близость товаров по эмбеддингам → множитель скора. Без карточки — слабое совпадение. */
+function titleFactor(sim: number | undefined): number {
+  if (sim === undefined) return 0.3;
+  if (sim >= 0.999) return 1;
+  if (sim >= 0.85) return 0.9;
+  if (sim >= 0.72) return 0.5;
+  return 0;
 }
 
-const SEMANTIC_CLUSTERS: string[][] = [
-  ["дверь", "окно", "стеклопакет", "профиль", "фурнитур", "наличник"],
-  ["кирпич", "блок", "цемент", "бетон", "раствор", "песок", "щебень"],
-  ["арматур", "прокат", "труб", "швеллер", "балк", "уголок", "лист"],
-  ["куртк", "костюм", "спецодежд", "перчатк", "обув", "ботинок", "каск"],
-  ["ведро", "лопат", "метл", "таз", "инвентар", "бочк", "канистр"],
-  ["стол", "стул", "кресл", "шкаф", "диван", "полк", "тумб"],
-  ["ноутбук", "компьютер", "сервер", "монитор", "клавиатур", "мыш"],
-];
-
-function titleSimilarity(t1: string, t2: string): number {
-  const w1 = t1.toLowerCase().split(/\s+/).map(stemWord).filter((s) => s.length > 2);
-  const w2 = t2.toLowerCase().split(/\s+/).map(stemWord).filter((s) => s.length > 2);
-  if (!w1.length || !w2.length) return 0.5;
-
-  const exact = w1.some((a) => w2.some((b) => a === b || a.startsWith(b) || b.startsWith(a)));
-  if (exact) return 1.0;
-
-  for (const cluster of SEMANTIC_CLUSTERS) {
-    const has1 = w1.some((w) => cluster.some((c) => w.startsWith(c) || c.startsWith(w)));
-    const has2 = w2.some((w) => cluster.some((c) => w.startsWith(c) || c.startsWith(w)));
-    if (has1 && has2) return 0.5;
-  }
-
-  return 0.0;
-}
-
-function matchScore(mine: Params, other: Params, myKind: Kind, myTitle = "", otherTitle = "") {
-  const titleSim = titleSimilarity(myTitle, otherTitle);
+function matchScore(mine: Params, other: Params, myKind: Kind, titleSim: number) {
   if (titleSim === 0) return 0;
 
   let wsum = 0;
@@ -180,7 +154,8 @@ function RequestsPage() {
   const ocrInput = useRef<HTMLInputElement>(null);
   const [kind, setKind] = useState<Kind>("buy");
   const [text, setText] = useState("");
-  const [title, setTitle] = useState("");
+  const [seed, setSeed] = useState("");
+  const findProducts = useProductSearch();
   const [product, setProduct] = useState<PickedProduct | null>(null);
   const [params, setParams] = useState<Params>(emptyParams);
   const [extra, setExtra] = useState("");
@@ -193,6 +168,7 @@ function RequestsPage() {
   const [filter, setFilter] = useState<"all" | "buy" | "sell" | "mine">("all");
   const [query, setQuery] = useState("");
   const [ref, setRef] = useState<Ref | null>(null);
+  const [sims, setSims] = useState<Record<string, number>>({});
   const [open, setOpen] = useState<Stored | null>(null);
   const [respondTo, setRespondTo] = useState<Stored | null>(null);
   const [editing, setEditing] = useState<Stored | null>(null);
@@ -202,7 +178,7 @@ function RequestsPage() {
     setLoadingAll(true);
     const { data, error } = await supabase
       .from("trade_requests")
-      .select("id, owner_id, kind, title, params, extra, created_at, response_to, attachment_url")
+      .select("id, owner_id, kind, title, params, extra, created_at, response_to, attachment_url, product_id")
       .order("created_at", { ascending: false })
       .limit(300);
     setLoadingAll(false);
@@ -210,6 +186,16 @@ function RequestsPage() {
     setAll((data ?? []) as unknown as Stored[]);
   }
   useEffect(() => { if (mode === "registry") void loadAll(); }, [mode]);
+
+  // Смысловая близость товаров (эмбеддинги) между моей заявкой и остальными
+  useEffect(() => {
+    if (!ref) { setSims({}); return; }
+    const ids = [...new Set(all.map((r) => r.product_id).filter((x): x is string => !!x))];
+    if (!ids.length) return;
+    void supabase.rpc("product_pair_similarity", { _ref: ref.productId, _ids: ids }).then(({ data }) => {
+      setSims(Object.fromEntries((data ?? []).map((d) => [d.product_id, d.similarity])));
+    });
+  }, [ref, all]);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -220,17 +206,22 @@ function RequestsPage() {
       .filter((r) => !ref || r.owner_id !== user?.id)
       .map((r) => {
         const counter = ref && r.kind !== ref.kind && r.id !== ref.id;
-        const score = counter ? matchScore(ref.params, { ...emptyParams(), ...r.params }, ref.kind, ref.title, r.title) : null;
+        const score = counter ? matchScore(ref.params, { ...emptyParams(), ...r.params }, ref.kind, titleFactor(r.product_id ? sims[r.product_id] : undefined)) : null;
         return { r, score };
       });
     if (ref) list.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
     return list;
-  }, [all, filter, query, ref, user?.id]);
+  }, [all, filter, query, ref, sims, user?.id]);
+
+  function pickFrom(r: Stored): PickedProduct | null {
+    return r.product_id ? { id: r.product_id, title: r.title, category: null, unit: null } : null;
+  }
 
   function respond(r: Stored) {
     setRespondTo(r);
     setKind(r.kind === "buy" ? "sell" : "buy");
-    setTitle(r.title);
+    setProduct(pickFrom(r));
+    if (!r.product_id) setSeed(r.title);
     setParams({ ...emptyParams(), ...r.params });
     setExtra("");
     setOpen(null);
@@ -241,7 +232,8 @@ function RequestsPage() {
     setEditing(r);
     setRespondTo(null);
     setKind(r.kind);
-    setTitle(r.title);
+    setProduct(pickFrom(r));
+    if (!r.product_id) setSeed(r.title);
     setParams({ ...emptyParams(), ...r.params });
     setExtra(r.extra ?? "");
     setOpen(null);
@@ -316,7 +308,7 @@ function RequestsPage() {
     try {
       const r = await analyze({ data: { text: input.slice(0, 5000) } });
       const s = (v: number | null) => (v === null ? "" : String(Math.round(v * 100) / 100));
-      setTitle(r.title ?? "");
+      // Пустое в тексте остаётся пустым — ничего не досочиняем
       setParams((p) => ({
         ...p,
         qty: { ...p.qty, min: s(r.qtyMin), max: s(r.qtyMax), unit: r.qtyUnit ?? "" },
@@ -327,7 +319,18 @@ function RequestsPage() {
         warranty: { ...p.warranty, value: r.warranty ?? "" },
         regularity: { ...p.regularity, value: r.regularity ?? "" },
       }));
-      toast.success("Поля заполнены по тексту");
+      if (r.title && !product) {
+        const found = await findProducts(r.title, 0.85).catch(() => []);
+        if (found[0]) {
+          setProduct(found[0]);
+          toast.success(`Поля заполнены, выбрана карточка «${found[0].title}»`);
+        } else {
+          setSeed(r.title);
+          toast.success("Поля заполнены. Выберите карточку или создайте новую");
+        }
+      } else {
+        toast.success("Поля заполнены по тексту");
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Не удалось проанализировать");
     } finally {
@@ -337,7 +340,8 @@ function RequestsPage() {
 
   async function search() {
     if (!user) return;
-    if (!title.trim()) { toast.error("Укажите название товара или услуги"); return; }
+    if (!product) { toast.error("Выберите товар или услугу из каталога либо создайте карточку"); return; }
+    const title = product.title;
     setSearching(true);
     try {
       let attachment: string | null = null;
@@ -348,11 +352,11 @@ function RequestsPage() {
           .from("trade_requests")
           .update({
             kind,
-            title: title.trim(),
+            title,
             params: params as never,
             extra: extra || null,
             ...(attachment ? { attachment_url: attachment } : {}),
-            ...(product ? { product_id: product.id } : {}),
+            product_id: product.id,
           })
           .eq("id", editing.id)
           .select("id");
@@ -365,19 +369,19 @@ function RequestsPage() {
           .insert({
             owner_id: user.id,
             kind,
-            title: title.trim(),
+            title,
             params: params as never,
             extra: extra || null,
             attachment_url: attachment,
             response_to: respondTo?.id ?? null,
-            product_id: product?.id ?? null,
+            product_id: product.id,
           })
           .select("id")
           .single();
         if (error) throw error;
         savedId = saved.id;
       }
-      setRef({ kind, params, id: savedId, title: title.trim() });
+      setRef({ kind, params, id: savedId, productId: product.id });
       setRespondTo(null);
       setEditing(null);
       setFilter(kind === "buy" ? "sell" : "buy");
@@ -407,7 +411,7 @@ function RequestsPage() {
         {mode === "form" && editing && (
           <div className="flex items-center justify-between gap-3 rounded-xl border border-border px-4 py-2 text-sm text-dim">
             <span>Редактирование заявки: <b className="text-ink">{editing.title}</b></span>
-            <button type="button" className="text-brand underline" onClick={() => { setEditing(null); setTitle(""); setParams(emptyParams()); setExtra(""); }}>Отменить</button>
+            <button type="button" className="text-brand underline" onClick={() => { setEditing(null); setProduct(null); setParams(emptyParams()); setExtra(""); }}>Отменить</button>
           </div>
         )}
         {respondTo && (
@@ -463,12 +467,8 @@ function RequestsPage() {
 
         <section className="glass-panel space-y-4 rounded-2xl p-6">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-ink">Товар из каталога</label>
-            <ProductPicker value={product} onChange={(p) => { setProduct(p); if (p && !title.trim()) setTitle(p.title); }} />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-ink">Название товара или услуги</label>
-            <Input className="mt-2" value={title} onChange={(e) => setTitle(e.target.value)} />
+            <label className="text-sm font-medium text-ink">Товар или услуга из каталога</label>
+            <ProductPicker value={product} onChange={setProduct} seed={seed} />
           </div>
 
           <div className="space-y-3">
