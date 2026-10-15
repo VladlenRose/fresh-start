@@ -90,12 +90,16 @@ export type Database = {
       }
       products: {
         Row: {
+          attrs: Json
           category: string | null
           created_at: string
           created_by: string | null
           description: string | null
+          embedding: string | null
+          embedding_text: string | null
           id: string
           image_id: string | null
+          kind: string
           merged_into: string | null
           owner_id: string | null
           price: number
@@ -106,12 +110,16 @@ export type Database = {
           unit: string | null
         }
         Insert: {
+          attrs?: Json
           category?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
+          embedding?: string | null
+          embedding_text?: string | null
           id?: string
           image_id?: string | null
+          kind?: string
           merged_into?: string | null
           owner_id?: string | null
           price?: number
@@ -122,12 +130,16 @@ export type Database = {
           unit?: string | null
         }
         Update: {
+          attrs?: Json
           category?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
+          embedding?: string | null
+          embedding_text?: string | null
           id?: string
           image_id?: string | null
+          kind?: string
           merged_into?: string | null
           owner_id?: string | null
           price?: number
@@ -324,9 +336,11 @@ export type Database = {
       claim_first_admin: { Args: never; Returns: boolean }
       create_product_from_request: {
         Args: {
+          _attrs?: Json
           _category: string
           _description: string
           _image_id: string
+          _kind?: string
           _title: string
           _unit: string
         }
@@ -339,7 +353,27 @@ export type Database = {
         }
         Returns: boolean
       }
+      match_products: {
+        Args: { _count?: number; _query: string }
+        Returns: {
+          category: string
+          description: string
+          id: string
+          image_id: string
+          kind: string
+          similarity: number
+          title: string
+          unit: string
+        }[]
+      }
       my_role: { Args: never; Returns: Database["public"]["Enums"]["app_role"] }
+      product_pair_similarity: {
+        Args: { _ids: string[]; _ref: string }
+        Returns: {
+          product_id: string
+          similarity: number
+        }[]
+      }
       product_request_counts: {
         Args: { _ids: string[] }
         Returns: {

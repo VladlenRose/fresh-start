@@ -22,6 +22,13 @@
       "when": 1791936620253,
       "tag": "0002_admin_unowned_products_and_merge",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792103499737,
+      "tag": "0003_product_kind_embeddings",
+      "breakpoints": true
     }
   ]
 }
