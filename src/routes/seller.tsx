@@ -30,13 +30,16 @@ import {
   updateProduct,
   uploadProductImage,
   type Product,
+  type ProductKind,
   type ProductStatus,
 } from "@/lib/api";
 
 import { CATEGORIES, fallbackImage } from "@/lib/catalog-meta";
 import { cn } from "@/lib/utils";
+import { useServerFn } from "@tanstack/react-start";
+import { refreshProductEmbeddings } from "@/lib/embeddings.functions";
 
-const TITLE = "Кабинет продавца AI-Mall — товары и модерация";
+const TITLE = "Мои товары и услуги — кабинет продавца AI-Mall";
 const DESCRIPTION =
   "Добавляйте товары, управляйте карточками и отслеживайте статусы: активен, на модерации, завершён.";
 
@@ -69,6 +72,10 @@ function Seller() {
   const [category, setCategory] = useState<string>(CATEGORIES[1]);
   const [description, setDescription] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [kind, setKind] = useState<ProductKind>("product");
+  const [a1, setA1] = useState("");
+  const [a2, setA2] = useState("");
+  const refreshEmb = useServerFn(refreshProductEmbeddings);
 
   const productsQuery = useQuery({
     queryKey: ["my-products", user?.id],
@@ -104,6 +111,8 @@ function Seller() {
         rating: 0,
         imageId,
         status: "Активен",
+        kind,
+        attrs: Object.fromEntries(Object.entries(kind === "service" ? { term: a1, rate: a2 } : { stock: a1, weight: a2 }).filter(([, v]) => v.trim())),
       });
     },
     onSuccess: async () => {
@@ -111,9 +120,12 @@ function Seller() {
       setPrice("");
       setDescription("");
       setFile(null);
+      setA1("");
+      setA2("");
+      void refreshEmb().catch(() => {});
       await queryClient.invalidateQueries({ queryKey: ["my-products"] });
       await queryClient.invalidateQueries({ queryKey: ["products"] });
-      toast.success("Товар опубликован");
+      toast.success(kind === "service" ? "Услуга опубликована" : "Товар опубликован");
     },
     onError: () => toast.error("Не удалось сохранить товар"),
   });
@@ -131,7 +143,7 @@ function Seller() {
   const imageOf = (p: Product) => imageUrl(p.imageId) ?? fallbackImage(p.$id);
 
   return (
-    <AppShell title="Мои товары">
+    <AppShell title="Мои товары и услуги">
       <div className="grid gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
         <form
           className="glass-panel h-fit rounded-2xl p-6"
@@ -144,7 +156,15 @@ function Seller() {
             create.mutate();
           }}
         >
-          <h2 className="text-base font-semibold text-ink">Добавить товар</h2>
+          <h2 className="text-base font-semibold text-ink">Добавить {kind === "service" ? "услугу" : "товар"}</h2>
+          <div className="mt-3 inline-flex rounded-full border border-border p-1">
+            {(["product", "service"] as const).map((k) => (
+              <button key={k} type="button" onClick={() => { setKind(k); setUnit(k === "service" ? "час" : "шт"); }}
+                className={cn("rounded-full px-4 py-1 text-xs font-medium", kind === k ? "bg-brand text-brand-foreground" : "text-dim")}>
+                {k === "service" ? "Услуга" : "Товар"}
+              </button>
+            ))}
+          </div>
 
           <div className="mt-5 space-y-4">
             <div className="space-y-2">
@@ -168,7 +188,7 @@ function Seller() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label htmlFor="p-price">Цена, ₽</Label>
+                <Label htmlFor="p-price">{kind === "service" ? "Стоимость за ед. времени, ₽" : "Цена, ₽"}</Label>
                 <Input
                   id="p-price"
                   inputMode="numeric"
@@ -178,8 +198,18 @@ function Seller() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="p-unit">Единица</Label>
+                <Label htmlFor="p-unit">{kind === "service" ? "Единица времени" : "Единица"}</Label>
                 <Input id="p-unit" value={unit} onChange={(e) => setUnit(e.target.value)} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>{kind === "service" ? "Срок оказания" : "Остаток"}</Label>
+                <Input value={a1} onChange={(e) => setA1(e.target.value)} placeholder={kind === "service" ? "5 рабочих дней" : "1200 шт"} />
+              </div>
+              <div className="space-y-2">
+                <Label>{kind === "service" ? "Мин. объём" : "Вес единицы"}</Label>
+                <Input value={a2} onChange={(e) => setA2(e.target.value)} placeholder={kind === "service" ? "от 4 часов" : "0,4 кг"} />
               </div>
             </div>
             <div className="space-y-2">
@@ -219,7 +249,7 @@ function Seller() {
 
         <section className="glass-panel overflow-hidden rounded-2xl">
           <div className="border-b border-border px-6 py-4 text-base font-semibold text-ink">
-            Список товаров · {items.length}
+            Товары и услуги · {items.length}
           </div>
           {productsQuery.isLoading ? (
             <div className="grid place-items-center py-16">
@@ -227,7 +257,7 @@ function Seller() {
             </div>
           ) : items.length === 0 ? (
             <p className="px-6 py-16 text-center text-sm text-dim">
-              Пока нет товаров. Добавьте первый — он сразу появится в каталоге.
+              Пока нет товаров и услуг. Добавьте первый — он сразу появится в каталоге.
             </p>
           ) : (
             <ul className="divide-y divide-border">
@@ -242,7 +272,7 @@ function Seller() {
                   <div className="min-w-40 flex-1">
                     <div className="text-sm font-medium text-ink">{p.title}</div>
                     <div className="text-xs text-dim">
-                      {p.category} · {p.price.toLocaleString("ru-RU")} ₽/{p.unit ?? "шт"}
+                      {p.kind === "service" ? "Услуга" : "Товар"} · {p.category} · {p.price.toLocaleString("ru-RU")} ₽/{p.unit ?? "шт"}
                     </div>
                   </div>
                   {counts[p.$id] ? (

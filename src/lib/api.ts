@@ -17,7 +17,11 @@ export type Product = {
   rating: number;
   imageId?: string | null;
   status: ProductStatus;
+  kind: ProductKind;
+  attrs: Record<string, string>;
 };
+
+export type ProductKind = "product" | "service";
 
 export type Profile = {
   $id: string;
@@ -76,6 +80,8 @@ export type ProductInput = {
   rating: number;
   imageId?: string | null;
   status: ProductStatus;
+  kind?: ProductKind;
+  attrs?: Record<string, string>;
 };
 
 export type ProfileInput = {
@@ -131,6 +137,8 @@ function toProduct(r: any): Product {
     rating: Number(r.rating ?? 0),
     imageId: r.image_id ?? null,
     status: r.status,
+    kind: r.kind ?? "product",
+    attrs: r.attrs ?? {},
   };
 }
 
@@ -258,6 +266,8 @@ export async function createProduct(userId: string, data: ProductInput) {
       rating: data.rating,
       image_id: data.imageId ?? null,
       status: data.status,
+      kind: data.kind ?? "product",
+      attrs: data.attrs ?? {},
     })
     .select()
     .single();
@@ -276,7 +286,11 @@ export async function updateProduct(id: string, data: Partial<ProductInput>) {
     rating?: number;
     image_id?: string | null;
     status?: string;
+    kind?: string;
+    attrs?: Record<string, string>;
   } = {};
+  if (data.kind !== undefined) patch["kind"] = data.kind;
+  if (data.attrs !== undefined) patch["attrs"] = data.attrs;
   if (data.title !== undefined) patch["title"] = data.title;
   if (data.description !== undefined) patch["description"] = data.description;
   if (data.supplier !== undefined) patch["supplier"] = data.supplier;
