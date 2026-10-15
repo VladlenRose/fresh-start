@@ -100,9 +100,12 @@ const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null
 export const analyzeRequestText = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ text: z.string().min(1).max(5000) }).parse(d))
   .handler(async ({ data }): Promise<Extracted> => {
-    const p1 = process.env["GROQ_API_KEY1"], p2 = process.env["GROQ_API_KEY2"];
-    const key = process.env["GROQ_API_KEY"] || (p1 && p2 ? p1 + p2 : undefined);
-    if (!key) throw new Error("Не задан GROQ_API_KEY");
+    const key1 = process.env["GROQ_API_KEY1"], key2 = process.env["GROQ_API_KEY2"];
+    if (!key1 || !key2) {
+      throw new Error("Не заданы GROQ_API_KEY1 или GROQ_API_KEY2");
+    }
+
+    const key = key1 + key2;
 
 
     // Запускаем 3 микро-запроса параллельно
