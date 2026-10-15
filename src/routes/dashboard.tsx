@@ -56,7 +56,7 @@ function Dashboard() {
       icon: FileText,
       to: "/documents" as const,
     },
-    { label: "Мои товары", value: (mine.data ?? []).length, icon: Package, to: "/seller" as const },
+    { label: "Мои товары и услуги", value: (mine.data ?? []).length, icon: Package, to: "/seller" as const },
     { label: "Товаров в каталоге", value: (all.data ?? []).length, icon: Store, to: "/catalog" as const },
   ];
 
